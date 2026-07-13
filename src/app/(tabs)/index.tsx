@@ -45,7 +45,7 @@ export default function HomeTab(): JSX.Element {
           </Typography.Paragraph>{" "}
           and watch it reload.
         </Typography.Paragraph>
-        <Button className="w-full">Get started</Button>
+        <Button className="w-full">Get started fu</Button>
       </Card>
     </View>
   );
