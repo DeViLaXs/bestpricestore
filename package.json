@@ -17,7 +17,9 @@
     "@expo/metro-runtime": "~57.0.2",
     "@expo/vector-icons": "^15.0.3",
     "@gorhom/bottom-sheet": "^5.2.14",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@tanstack/react-query": "^5.101.2",
+    "axios": "^1.18.1",
     "expo": "~57.0.0",
     "expo-constants": "~57.0.2",
     "expo-font": "~57.0.0",
@@ -26,6 +28,7 @@
     "expo-splash-screen": "~57.0.1",
     "expo-status-bar": "~57.0.0",
     "heroui-native": "^1.0.5",
+    "lucide-react-native": "^1.24.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.0",
@@ -38,7 +41,8 @@
     "tailwind-merge": "^3.6.0",
     "tailwind-variants": "^3.2.2",
     "tailwindcss": "^4.3.2",
-    "uniwind": "^1.10.0"
+    "uniwind": "^1.10.0",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@types/react": "~19.2.15",
