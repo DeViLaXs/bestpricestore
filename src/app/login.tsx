@@ -7,7 +7,7 @@ import { Smartphone, Eye, EyeOff } from "lucide-react-native";
 import { withUniwind } from "uniwind";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { useAuth, getErrorMessage } from "../hooks/useAuth";
+import { useAuth, getErrorMessage, checkIsAdmin } from "../hooks/useAuth";
 
 const StyledSmartphone = withUniwind(Smartphone);
 const StyledEye = withUniwind(Eye);
@@ -56,7 +56,7 @@ export default function LoginScreen(): JSX.Element {
 
       // Delay navigation slightly so user can see success state
       setTimeout(() => {
-        if (res.user.role === "Admin") {
+        if (checkIsAdmin(res.user)) {
           router.replace("/admin/representatives");
         } else if (res.user.isActive) {
           router.replace("/" as any);
@@ -65,7 +65,7 @@ export default function LoginScreen(): JSX.Element {
         }
       }, 1500);
     } catch (err: any) {
-      console.error("Login failed:", err);
+      console.log("Login failed:", err);
     }
   };
 
@@ -151,15 +151,9 @@ export default function LoginScreen(): JSX.Element {
                     className="absolute left-4 w-8 h-8 items-center justify-center"
                   >
                     {isPasswordVisible ? (
-                      <StyledEyeOff
-                        size={18}
-                        className="text-gray-400"
-                      />
+                      <StyledEyeOff size={18} className="text-gray-400" />
                     ) : (
-                      <StyledEye
-                        size={18}
-                        className="text-gray-400"
-                      />
+                      <StyledEye size={18} className="text-gray-400" />
                     )}
                   </Pressable>
                 </View>

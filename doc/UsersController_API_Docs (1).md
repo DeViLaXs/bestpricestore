@@ -11,15 +11,17 @@ Allows an authenticated user to update their own profile details. The User ID is
 - **URL:** `/api/Users/profile`
 - **Method:** `PATCH`
 - **Authentication:** Required (Bearer Token)
-- **Role Required:** None (Any authenticated user)
+- **Role Required:** Admin
 
 ### Request Headers
-| Header | Value |
-|--------|-------|
+
+| Header          | Value                     |
+| --------------- | ------------------------- |
 | `Authorization` | `Bearer {your_jwt_token}` |
-| `Content-Type` | `application/json` |
+| `Content-Type`  | `application/json`        |
 
 ### Request Body
+
 ```json
 {
   "storeName": "Mukalla Store",
@@ -27,12 +29,14 @@ Allows an authenticated user to update their own profile details. The User ID is
   "location": "Mukalla"
 }
 ```
-*Note: All fields are required.*
+
+_Note: All fields are required._
 
 ### Responses
 
 **Success (200 OK):**
 Profile was successfully updated.
+
 ```json
 {
   "statusCode": 200,
@@ -46,6 +50,7 @@ Profile was successfully updated.
 
 **Bad Request (400 Bad Request):**
 Returned if no changes were made to the profile, or if validation fails.
+
 ```json
 {
   "statusCode": 400,
@@ -69,18 +74,21 @@ Approves a suspended or unapproved user, granting them access to the platform.
 - **Role Required:** Admin
 
 ### Request Parameters
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `id` | `integer` | The internal ID of the user to approve |
+
+| Parameter | Type      | Description                            |
+| --------- | --------- | -------------------------------------- |
+| `id`      | `integer` | The internal ID of the user to approve |
 
 ### Request Headers
-| Header | Value |
-|--------|-------|
+
+| Header          | Value                      |
+| --------------- | -------------------------- |
 | `Authorization` | `Bearer {admin_jwt_token}` |
 
 ### Responses
 
 **Success (200 OK):**
+
 ```json
 {
   "statusCode": 200,
@@ -94,6 +102,7 @@ Approves a suspended or unapproved user, granting them access to the platform.
 
 **Bad Request (400 Bad Request):**
 Returned if the user is already approved.
+
 ```json
 {
   "statusCode": 400,
@@ -117,18 +126,21 @@ Suspends an active user, preventing them from logging in or using the platform.
 - **Role Required:** Admin
 
 ### Request Parameters
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `id` | `integer` | The internal ID of the user to suspend |
+
+| Parameter | Type      | Description                            |
+| --------- | --------- | -------------------------------------- |
+| `id`      | `integer` | The internal ID of the user to suspend |
 
 ### Request Headers
-| Header | Value |
-|--------|-------|
+
+| Header          | Value                      |
+| --------------- | -------------------------- |
 | `Authorization` | `Bearer {admin_jwt_token}` |
 
 ### Responses
 
 **Success (200 OK):**
+
 ```json
 {
   "statusCode": 200,
@@ -142,6 +154,7 @@ Suspends an active user, preventing them from logging in or using the platform.
 
 **Bad Request (400 Bad Request):**
 Returned if the user is already suspended.
+
 ```json
 {
   "statusCode": 400,
@@ -165,13 +178,15 @@ Retrieves a list of all users who have the role of "Representative". This allows
 - **Role Required:** Admin
 
 ### Request Headers
-| Header | Value |
-|--------|-------|
+
+| Header          | Value                      |
+| --------------- | -------------------------- |
 | `Authorization` | `Bearer {admin_jwt_token}` |
 
 ### Responses
 
 **Success (200 OK):**
+
 ```json
 {
   "statusCode": 200,

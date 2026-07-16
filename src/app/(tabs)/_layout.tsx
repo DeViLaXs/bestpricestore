@@ -1,24 +1,35 @@
 import type { JSX } from "react";
 import { useEffect } from "react";
 import { Tabs, router } from "expo-router";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { Home, Store, Heart, Menu, ShoppingCart } from "lucide-react-native";
+import { View, Text, TouchableOpacity } from "react-native";
+import { Home, Store, ClipboardList, User, ShoppingCart } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../hooks/useAuth";
+import { useAuthStore } from "../../store/authStore";
+import { useCartStore } from "../../store/cartStore";
 
 export default function TabsLayout(): JSX.Element | null {
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isAdmin } = useAuth();
   const insets = useSafeAreaInsets();
+  const cartItemsCount = useCartStore((state) => state.items.reduce((sum, item) => sum + item.quantity, 0));
 
-  // Redirect to login if user is not authenticated
+  // Redirect to login if user is not authenticated (only after hydration is complete)
+  const hydrated = useAuthStore((state) => state.hydrated);
+
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.replace("/login");
+    if (hydrated) {
+      if (!isAuthenticated) {
+        router.replace("/login");
+      } else if (isAdmin) {
+        router.replace("/admin/representatives");
+      } else if (user && !user.isActive) {
+        router.replace("/pending");
+      }
     }
-  }, [isAuthenticated]);
+  }, [hydrated, isAuthenticated, isAdmin, user]);
 
-  // If not authenticated, render nothing while redirecting
-  if (!isAuthenticated) {
+  // If not hydrated, not authenticated, or admin/inactive, render nothing while redirecting
+  if (!hydrated || !isAuthenticated || isAdmin || (user && !user.isActive)) {
     return null;
   }
 
@@ -28,21 +39,18 @@ export default function TabsLayout(): JSX.Element | null {
         headerShown: false,
       }}
       tabBar={(props) => {
-        const { state, descriptors, navigation } = props;
+        const { state, navigation } = props;
         const safeBottom = insets.bottom > 0 ? insets.bottom : 28;
         return (
           <View
-            style={[
-              styles.tabBarContainer,
-              {
-                paddingBottom: safeBottom,
-                height: 64 + safeBottom,
-              },
-            ]}
+            className="flex-row bg-white border-t border-gray-100 shadow-lg items-center justify-between absolute bottom-0 left-0 right-0 px-3"
+            style={{
+              paddingBottom: safeBottom,
+              height: 64 + safeBottom,
+            }}
           >
             {state.routes.map((route, index) => {
               const isFocused = state.index === index;
-              const { options } = descriptors[route.key];
 
               const onPress = () => {
                 const event = navigation.emit({
@@ -62,11 +70,18 @@ export default function TabsLayout(): JSX.Element | null {
                   <TouchableOpacity
                     key={route.key}
                     onPress={onPress}
-                    style={styles.floatingTabButton}
+                    className="flex-1 items-center justify-center z-[999]"
                     activeOpacity={0.8}
                   >
-                    <View style={styles.floatingIconContainer}>
+                    <View className="w-14 h-14 rounded-full bg-[#0c3f7c] items-center justify-center -mt-8 border-4 border-white shadow-lg relative">
                       <ShoppingCart size={24} color="#ffffff" />
+                      {cartItemsCount > 0 && (
+                        <View className="absolute -top-1.5 -right-1.5 bg-red-500 rounded-full min-w-5 h-5 px-1 items-center justify-center border-2 border-white">
+                          <Text className="text-white text-[9px] font-black text-center">
+                            {cartItemsCount}
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   </TouchableOpacity>
                 );
@@ -74,12 +89,12 @@ export default function TabsLayout(): JSX.Element | null {
 
               let label = "";
 
-              if (route.name === "more") {
-                label = "الاعضي";
-              } else if (route.name === "wishlist") {
-                label = "إعاضل أعلامانة";
+              if (route.name === "profile") {
+                label = "الملف الشخصي";
+              } else if (route.name === "orders") {
+                label = "طلباتي";
               } else if (route.name === "shop") {
-                label = "انقتت";
+                label = "المتجر";
               } else if (route.name === "index") {
                 label = "الشاشة الرئيسية";
               }
@@ -93,10 +108,10 @@ export default function TabsLayout(): JSX.Element | null {
                     return <Home color={color} size={size} />;
                   case "shop":
                     return <Store color={color} size={size} />;
-                  case "wishlist":
-                    return <Heart color={color} size={size} />;
-                  case "more":
-                    return <Menu color={color} size={size} />;
+                  case "orders":
+                    return <ClipboardList color={color} size={size} />;
+                  case "profile":
+                    return <User color={color} size={size} />;
                   default:
                     return <Home color={color} size={size} />;
                 }
@@ -106,12 +121,13 @@ export default function TabsLayout(): JSX.Element | null {
                 <TouchableOpacity
                   key={route.key}
                   onPress={onPress}
-                  style={styles.tabButton}
+                  className="flex-1 items-center justify-center pt-2"
                   activeOpacity={0.7}
                 >
                   {renderTabIcon(route.name, isFocused ? activeColor : inactiveColor, 22)}
                   <Text
-                    style={[styles.tabLabel, { color: isFocused ? activeColor : inactiveColor }]}
+                    className="text-[10px] font-semibold mt-1 text-center"
+                    style={{ color: isFocused ? activeColor : inactiveColor }}
                   >
                     {label}
                   </Text>
@@ -123,15 +139,15 @@ export default function TabsLayout(): JSX.Element | null {
       }}
     >
       <Tabs.Screen
-        name="more"
+        name="profile"
         options={{
-          title: "الاعضي",
+          title: "الملف الشخصي",
         }}
       />
       <Tabs.Screen
-        name="wishlist"
+        name="orders"
         options={{
-          title: "إعاضل أعلامانة",
+          title: "طلباتي",
         }}
       />
       <Tabs.Screen
@@ -143,7 +159,7 @@ export default function TabsLayout(): JSX.Element | null {
       <Tabs.Screen
         name="shop"
         options={{
-          title: "انقتت",
+          title: "المتجر",
         }}
       />
       <Tabs.Screen
@@ -155,57 +171,3 @@ export default function TabsLayout(): JSX.Element | null {
     </Tabs>
   );
 }
-
-const styles = StyleSheet.create({
-  tabBarContainer: {
-    flexDirection: "row",
-    backgroundColor: "#ffffff",
-    borderTopWidth: 1,
-    borderTopColor: "#f3f4f6",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 8,
-    alignItems: "center",
-    justifyContent: "space-between",
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-  tabButton: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingTop: 8,
-  },
-  tabLabel: {
-    fontSize: 10,
-    fontWeight: "600",
-    marginTop: 4,
-    textAlign: "center",
-  },
-  floatingTabButton: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 999,
-  },
-  floatingIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#0c3f7c", // Navy blue
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: -32, // Floats it above the tab bar
-    shadowColor: "#0c3f7c",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 8,
-    borderWidth: 4,
-    borderColor: "#ffffff",
-  },
-});

@@ -1,6 +1,6 @@
 # Categories API Documentation
 
-This document describes the category management endpoints provided by the `CategoriesController`. These endpoints allow fetching, creating, updating, and deleting product categories. 
+This document describes the category management endpoints provided by the `CategoriesController`. These endpoints allow fetching, creating, updating, and deleting product categories.
 
 > [!NOTE]
 > Read operations (`GET`) are public, while write operations (`POST`, `PUT`, `DELETE`) are strictly locked to the `Admin` role.
@@ -18,6 +18,7 @@ Retrieves a list of all categories in the system.
 ### Responses
 
 **Success (200 OK):**
+
 ```json
 {
   "statusCode": 200,
@@ -46,22 +47,26 @@ Creates a new category.
 - **Role Required:** Admin
 
 ### Request Headers
-| Header | Value |
-|--------|-------|
+
+| Header          | Value                      |
+| --------------- | -------------------------- |
 | `Authorization` | `Bearer {admin_jwt_token}` |
-| `Content-Type` | `application/json` |
+| `Content-Type`  | `application/json`         |
 
 ### Request Body
+
 ```json
 {
   "name": "Home Appliances"
 }
 ```
-*Note: `name` is required and limited to 255 characters.*
+
+_Note: `name` is required and limited to 255 characters._
 
 ### Responses
 
 **Success (201 Created):**
+
 ```json
 {
   "statusCode": 201,
@@ -86,17 +91,20 @@ Updates an existing category's name.
 - **Role Required:** Admin
 
 ### Request Parameters
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `id` | `integer` | The ID of the category to update |
+
+| Parameter | Type      | Description                      |
+| --------- | --------- | -------------------------------- |
+| `id`      | `integer` | The ID of the category to update |
 
 ### Request Headers
-| Header | Value |
-|--------|-------|
+
+| Header          | Value                      |
+| --------------- | -------------------------- |
 | `Authorization` | `Bearer {admin_jwt_token}` |
-| `Content-Type` | `application/json` |
+| `Content-Type`  | `application/json`         |
 
 ### Request Body
+
 ```json
 {
   "name": "Smart Home Appliances"
@@ -106,6 +114,7 @@ Updates an existing category's name.
 ### Responses
 
 **Success (200 OK):**
+
 ```json
 {
   "statusCode": 200,
@@ -125,7 +134,7 @@ Returned if the category to update does not exist.
 
 ## 4. Delete Category
 
-Deletes an existing category. 
+Deletes an existing category.
 
 > [!WARNING]
 > Deleting a category will cascade and automatically delete all `Products`, `ProductImages`, and `CartItems` associated with it. If any products in this category have been ordered, those specific `OrderProduct` records will be deleted first to prevent conflicts, protecting the rest of the database structure.
@@ -136,18 +145,21 @@ Deletes an existing category.
 - **Role Required:** Admin
 
 ### Request Parameters
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `id` | `integer` | The ID of the category to delete |
+
+| Parameter | Type      | Description                      |
+| --------- | --------- | -------------------------------- |
+| `id`      | `integer` | The ID of the category to delete |
 
 ### Request Headers
-| Header | Value |
-|--------|-------|
+
+| Header          | Value                      |
+| --------------- | -------------------------- |
 | `Authorization` | `Bearer {admin_jwt_token}` |
 
 ### Responses
 
 **Success (200 OK):**
+
 ```json
 {
   "statusCode": 200,

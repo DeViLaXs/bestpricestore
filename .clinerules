@@ -1,0 +1,25 @@
+# Styling Rules for bestpricestore
+
+## Styling Preference
+- **Strictly Use `uniwind` (Tailwind CSS for React Native)** for all component styling.
+- **Do NOT use React Native's `StyleSheet.create()`** or regular stylesheet CSS.
+- **Minimize inline `style` objects**, using them only for dynamic calculations (e.g., dynamic safe area insets or animated values).
+
+## How to Style
+- Apply utility classes directly using the `className` prop:
+  ```tsx
+  <View className="flex-1 bg-white px-6">
+    <Text className="text-xl font-bold text-gray-900">مرحبا</Text>
+  </View>
+  ```
+- For third-party components or icons (like `lucide-react-native` or `@expo/vector-icons`), wrap them using `withUniwind`:
+  ```tsx
+  import { withUniwind } from "uniwind";
+  import { Smartphone } from "lucide-react-native";
+
+  const StyledSmartphone = withUniwind(Smartphone);
+
+  // In JSX:
+  <StyledSmartphone size={18} className="text-gray-400" />
+  ```
+- Always adhere to RTL/Arabic layouts, verifying font alignments and directional layout properties (e.g., `text-right`, `flex-row-reverse` where applicable).

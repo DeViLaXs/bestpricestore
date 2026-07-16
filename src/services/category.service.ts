@@ -51,7 +51,9 @@ export const categoryService = {
    * Updates an existing category
    */
   async updateCategory(id: number, name: string): Promise<Category> {
-    const response = await api.put<CategoryResponseEnvelope<Category>>(`/Categories/${id}`, { name });
+    const response = await api.put<CategoryResponseEnvelope<Category>>(`/Categories/${id}`, {
+      name,
+    });
     const responseData = response.data;
     if (responseData.success && responseData.data) {
       return responseData.data;
@@ -68,7 +70,9 @@ export const categoryService = {
    * Deletes an existing category
    */
   async deleteCategory(id: number): Promise<void> {
-    const response = await api.delete<CategoryResponseEnvelope<{ message: string }>>(`/Categories/${id}`);
+    const response = await api.delete<CategoryResponseEnvelope<{ message: string }>>(
+      `/Categories/${id}`
+    );
     const responseData = response.data;
     if (!responseData.success) {
       throw new Error(
@@ -77,5 +81,5 @@ export const categoryService = {
           : "فشلت عملية حذف الفئة."
       );
     }
-  }
+  },
 };

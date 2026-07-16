@@ -26,7 +26,48 @@ export interface UserActionResponseEnvelope {
   errors: string[] | null;
 }
 
+export interface UpdateProfileRequest {
+  storeName: string;
+  phoneNumber: string;
+  location: string;
+}
+
 export const userService = {
+  /**
+   * Updates the current user's profile details
+   */
+  async updateProfile(data: UpdateProfileRequest): Promise<UserActionResponse> {
+    try {
+      const response = await api.patch<UserActionResponseEnvelope>("/Users/profile", {
+        storeName: data.storeName.trim(),
+        phoneNumber: data.phoneNumber.trim(),
+        location: data.location.trim(),
+      });
+      const responseData = response.data;
+      if (responseData.success && responseData.data) {
+        return responseData.data;
+      } else {
+        throw new Error(
+          responseData.errors && responseData.errors.length > 0
+            ? responseData.errors.join("\n")
+            : "فشلت عملية تحديث البيانات الشخصية."
+        );
+      }
+    } catch (error: any) {
+      if (__DEV__ && (!error.response || error.code === "ERR_NETWORK")) {
+        console.warn("Backend server not reachable. Simulating successful mock profile update...");
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            resolve({
+              message: "Profile has been successfully updated.",
+            });
+          }, 1000);
+        });
+      }
+      throw error;
+    }
+  },
+
   /**
    * Retrieves all representatives from the backend
    */
@@ -78,3 +119,4 @@ export const userService = {
     }
   },
 };
+

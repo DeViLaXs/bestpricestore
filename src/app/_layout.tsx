@@ -9,6 +9,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useAuthStore } from "../store/authStore";
 import CustomSplashScreen from "../components/CustomSplashScreen";
+import { checkIsAdmin } from "../hooks/useAuth";
 
 import "../global.css";
 
@@ -48,6 +49,25 @@ export default function RootLayout(): JSX.Element {
 
   const isAppReady = isAssetsReady && hydrated;
 
+  useEffect(() => {
+    if (isAppReady) {
+      // Auto-login redirection based on persisted state immediately when app is ready
+      // This loads the correct screen under the splash screen.
+      const { token, user } = useAuthStore.getState();
+      if (token && user) {
+        if (checkIsAdmin(user)) {
+          router.replace("/admin/representatives");
+        } else if (user.isActive) {
+          router.replace("/" as any);
+        } else {
+          router.replace("/pending");
+        }
+      } else {
+        router.replace("/login");
+      }
+    }
+  }, [isAppReady]);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
@@ -59,7 +79,11 @@ export default function RootLayout(): JSX.Element {
               <Stack.Screen name="pending" />
               <Stack.Screen name="admin/representatives" />
               <Stack.Screen name="admin/categories" />
+              <Stack.Screen name="admin/add-product" />
+              <Stack.Screen name="admin/profile" />
+              <Stack.Screen name="admin/orders" />
               <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="product-details" />
             </Stack>
             <StatusBar style="auto" />
 
@@ -68,20 +92,6 @@ export default function RootLayout(): JSX.Element {
                 isReady={isAppReady}
                 onAnimationComplete={() => {
                   setShowSplash(false);
-                  
-                  // Auto-login redirection based on persisted state
-                  const { token, user } = useAuthStore.getState();
-                  if (token && user) {
-                    if (user.role === "Admin") {
-                      router.replace("/admin/representatives");
-                    } else if (user.isActive) {
-                      router.replace("/" as any);
-                    } else {
-                      router.replace("/pending");
-                    }
-                  } else {
-                    router.replace("/login");
-                  }
                 }}
               />
             )}

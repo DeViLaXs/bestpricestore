@@ -7,7 +7,7 @@ import { ChevronRight, ArrowRight, Smartphone, MapPin, Eye, EyeOff } from "lucid
 import { withUniwind } from "uniwind";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { useAuth, getErrorMessage } from "../hooks/useAuth";
+import { useAuth, getErrorMessage, checkIsAdmin } from "../hooks/useAuth";
 
 const StyledChevronRight = withUniwind(ChevronRight);
 const StyledArrowRight = withUniwind(ArrowRight);
@@ -149,7 +149,9 @@ export default function RegisterScreen(): JSX.Element {
 
       // Delay navigation slightly so user can see success state
       setTimeout(() => {
-        if (res.user.isActive) {
+        if (checkIsAdmin(res.user)) {
+          router.replace("/admin/representatives");
+        } else if (res.user.isActive) {
           router.replace("/" as any);
         } else {
           router.replace("/pending");
@@ -157,7 +159,7 @@ export default function RegisterScreen(): JSX.Element {
       }, 1500);
     } catch (err: any) {
       // Errors are handled and set in context, but caught here for safety
-      console.error("Registration failed:", err);
+      console.log("Registration failed:", err);
     }
   };
 
@@ -186,15 +188,9 @@ export default function RegisterScreen(): JSX.Element {
                 className="w-10 h-10 items-center justify-center rounded-full bg-white shadow-sm border border-gray-100"
               >
                 {Platform.OS === "ios" ? (
-                  <StyledChevronRight
-                    size={22}
-                    className="text-gray-800"
-                  />
+                  <StyledChevronRight size={22} className="text-gray-800" />
                 ) : (
-                  <StyledArrowRight
-                    size={22}
-                    className="text-gray-800"
-                  />
+                  <StyledArrowRight size={22} className="text-gray-800" />
                 )}
               </Pressable>
               {/* Spacer to align back button */}
@@ -315,15 +311,9 @@ export default function RegisterScreen(): JSX.Element {
                     className="absolute left-4 w-8 h-8 items-center justify-center"
                   >
                     {isPasswordVisible ? (
-                      <StyledEyeOff
-                        size={18}
-                        className="text-gray-400"
-                      />
+                      <StyledEyeOff size={18} className="text-gray-400" />
                     ) : (
-                      <StyledEye
-                        size={18}
-                        className="text-gray-400"
-                      />
+                      <StyledEye size={18} className="text-gray-400" />
                     )}
                   </Pressable>
                 </View>
@@ -358,15 +348,9 @@ export default function RegisterScreen(): JSX.Element {
                     className="absolute left-4 w-8 h-8 items-center justify-center"
                   >
                     {isConfirmPasswordVisible ? (
-                      <StyledEyeOff
-                        size={18}
-                        className="text-gray-400"
-                      />
+                      <StyledEyeOff size={18} className="text-gray-400" />
                     ) : (
-                      <StyledEye
-                        size={18}
-                        className="text-gray-400"
-                      />
+                      <StyledEye size={18} className="text-gray-400" />
                     )}
                   </Pressable>
                 </View>

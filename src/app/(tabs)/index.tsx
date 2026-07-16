@@ -76,29 +76,6 @@ export default function HomeScreen(): JSX.Element {
 
   const safeTop = insets.top > 0 ? insets.top : 47;
 
-  const handleLogout = async () => {
-    Alert.alert(
-      "تسجيل الخروج",
-      "هل أنت متأكد من رغبتك في تسجيل الخروج؟",
-      [
-        { text: "إلغاء", style: "cancel" },
-        {
-          text: "خروج",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await logoutMutation.mutateAsync();
-              router.replace("/login");
-            } catch (err) {
-              console.error("Logout failed:", err);
-            }
-          },
-        },
-      ],
-      { cancelable: true }
-    );
-  };
-
   return (
     <View className="flex-1 bg-[#f8fafd]">
       <StatusBar style="dark" />
@@ -115,9 +92,6 @@ export default function HomeScreen(): JSX.Element {
           {/* Notification Bells Group (Left) */}
           <View className="flex-row items-center gap-2">
             {/* Plain notification bell - Triggers Logout for Utility */}
-            <TouchableOpacity onPress={handleLogout} className="p-1" activeOpacity={0.7}>
-              <Bell size={24} color="#0c3f7c" />
-            </TouchableOpacity>
 
             {/* Badged notification bell */}
             <TouchableOpacity className="relative p-1" activeOpacity={0.7}>
@@ -208,11 +182,7 @@ export default function HomeScreen(): JSX.Element {
                 textAlign: "right",
               }}
             />
-            <Search
-              size={20}
-              color="#a0aec0"
-              style={{ position: "absolute", right: 16 }}
-            />
+            <Search size={20} color="#a0aec0" style={{ position: "absolute", right: 16 }} />
           </View>
         </View>
 

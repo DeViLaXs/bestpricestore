@@ -25,21 +25,15 @@ import { Category } from "../../services/category.service";
 
 export default function CategoriesScreen(): JSX.Element {
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   // Route guard: only allow users with Admin role or credentials
   useEffect(() => {
-    const isAdmin =
-      user?.role?.toLowerCase() === "admin" ||
-      user?.fullName?.toLowerCase() === "admin" ||
-      user?.phone === "777777777" ||
-      user?.phone === "773124470";
-
     if (user && !isAdmin) {
       Alert.alert("تنبيه", "عذراً، هذه الصفحة مخصصة للمسؤولين فقط.");
       router.replace("/" as any);
     }
-  }, [user]);
+  }, [user, isAdmin]);
 
   // Form State
   const [categoryName, setCategoryName] = useState("");
@@ -54,11 +48,17 @@ export default function CategoriesScreen(): JSX.Element {
   const updateMutation = useUpdateCategoryMutation();
   const deleteMutation = useDeleteCategoryMutation();
 
-  // Filter categories list based on local search query (case-insensitive)
   const filteredCategories = useMemo(() => {
-    if (!searchQuery.trim()) return categories;
+    const cats = Array.isArray(categories) ? categories : [];
+    if (!searchQuery.trim()) return cats;
     const query = searchQuery.toLowerCase().trim();
-    return categories.filter((cat) => cat.name?.toLowerCase().includes(query));
+    return cats.filter(
+      (cat) =>
+        cat &&
+        String(cat.name || "")
+          .toLowerCase()
+          .includes(query)
+    );
   }, [categories, searchQuery]);
 
   // Handle Add / Edit submit
@@ -144,7 +144,10 @@ export default function CategoriesScreen(): JSX.Element {
           </TouchableOpacity>
 
           {/* Title on Right */}
-          <Text style={{ fontFamily: "System" }} className="text-xl font-bold text-white text-right">
+          <Text
+            style={{ fontFamily: "System" }}
+            className="text-xl font-bold text-white text-right"
+          >
             إدارة الفئات
           </Text>
         </View>
@@ -214,7 +217,7 @@ export default function CategoriesScreen(): JSX.Element {
                 className="bg-[#0F4C92] px-6 py-2.5 rounded-full flex-row items-center gap-1.5"
                 activeOpacity={0.7}
               >
-                {(createMutation.isPending || updateMutation.isPending) ? (
+                {createMutation.isPending || updateMutation.isPending ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
                   <>
@@ -231,7 +234,9 @@ export default function CategoriesScreen(): JSX.Element {
           {/* Section: Current Categories Header & Local Search */}
           <View className="px-6 pt-6 pb-4">
             <Text className="text-base font-bold text-gray-800 text-right">الفئات الحالية</Text>
-            <Text className="text-xs text-gray-400 text-right mt-1 mb-4">يمكنك تعديل أو حذف الفئات</Text>
+            <Text className="text-xs text-gray-400 text-right mt-1 mb-4">
+              يمكنك تعديل أو حذف الفئات
+            </Text>
 
             {/* Local Search Input */}
             <View className="relative justify-center">
@@ -255,11 +260,7 @@ export default function CategoriesScreen(): JSX.Element {
                   textAlign: "right",
                 }}
               />
-              <Search
-                size={20}
-                color="#a0aec0"
-                style={{ position: "absolute", right: 16 }}
-              />
+              <Search size={20} color="#a0aec0" style={{ position: "absolute", right: 16 }} />
             </View>
           </View>
 
@@ -272,7 +273,9 @@ export default function CategoriesScreen(): JSX.Element {
           ) : error ? (
             <View className="justify-center items-center py-10 px-6">
               <AlertCircle size={48} className="text-red-500 mb-2" />
-              <Text className="text-red-500 text-center font-bold text-base mb-2">تعذر تحميل بيانات الفئات</Text>
+              <Text className="text-red-500 text-center font-bold text-base mb-2">
+                تعذر تحميل بيانات الفئات
+              </Text>
               <Text className="text-gray-500 text-center text-xs mb-4">{error.message}</Text>
               <TouchableOpacity
                 onPress={() => refetch()}
@@ -280,6 +283,11 @@ export default function CategoriesScreen(): JSX.Element {
               >
                 <Text className="text-white font-bold">إعادة المحاولة</Text>
               </TouchableOpacity>
+            </View>
+          ) : categories.length === 0 ? (
+            <View className="justify-center items-center py-10">
+              <Tag size={48} color="#cbd5e1" className="mb-2" />
+              <Text className="text-gray-500 font-bold text-center">لا توجد فئات مسجلة حالياً</Text>
             </View>
           ) : filteredCategories.length === 0 ? (
             <View className="justify-center items-center py-10">

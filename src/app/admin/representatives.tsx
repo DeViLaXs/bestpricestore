@@ -12,9 +12,22 @@ import {
   RefreshControl,
   Animated,
   Pressable,
-  StyleSheet,
 } from "react-native";
-import { Menu, Search, AlertCircle, Users, LogOut, X, ShoppingBag, Settings, Tag } from "lucide-react-native";
+import {
+  Menu,
+  Search,
+  AlertCircle,
+  Users,
+  LogOut,
+  X,
+  ShoppingBag,
+  Settings,
+  Tag,
+  Package,
+  User,
+  ClipboardList,
+} from "lucide-react-native";
+
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -27,7 +40,7 @@ import {
 
 export default function RepresentativesScreen(): JSX.Element {
   const insets = useSafeAreaInsets();
-  const { user, logoutMutation } = useAuth();
+  const { user, isAdmin, logoutMutation } = useAuth();
 
   // Sidebar States and Animation
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -67,7 +80,7 @@ export default function RepresentativesScreen(): JSX.Element {
               await logoutMutation.mutateAsync();
               router.replace("/login");
             } catch (err) {
-              console.error("Logout failed:", err);
+              console.log("Logout failed:", err);
             }
           },
         },
@@ -78,21 +91,21 @@ export default function RepresentativesScreen(): JSX.Element {
 
   // Route guard: only allow users with Admin role or credentials
   useEffect(() => {
-    const isAdmin =
-      user?.role?.toLowerCase() === "admin" ||
-      user?.fullName?.toLowerCase() === "admin" ||
-      user?.phone === "777777777" ||
-      user?.phone === "773124470";
-
     if (user && !isAdmin) {
       Alert.alert("تنبيه", "عذراً، هذه الصفحة مخصصة للمسؤولين فقط.");
       router.replace("/" as any);
     }
-  }, [user]);
+  }, [user, isAdmin]);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Query & Mutation hooks
-  const { data: representatives = [], isLoading, error, refetch, isRefetching } = useRepresentativesQuery();
+  const {
+    data: representatives = [],
+    isLoading,
+    error,
+    refetch,
+    isRefetching,
+  } = useRepresentativesQuery();
   const approveMutation = useApproveRepresentativeMutation();
   const suspendMutation = useSuspendRepresentativeMutation();
 
@@ -100,13 +113,21 @@ export default function RepresentativesScreen(): JSX.Element {
 
   // Filter representatives list based on search query (name, phone, or location)
   const filteredRepresentatives = useMemo(() => {
-    if (!searchQuery.trim()) return representatives;
+    const reps = Array.isArray(representatives) ? representatives : [];
+    if (!searchQuery.trim()) return reps;
     const query = searchQuery.toLowerCase().trim();
-    return representatives.filter(
+    return reps.filter(
       (rep) =>
-        rep.storeName?.toLowerCase().includes(query) ||
-        rep.phoneNumber?.toLowerCase().includes(query) ||
-        rep.location?.toLowerCase().includes(query)
+        rep &&
+        (String(rep.storeName ?? "")
+          .toLowerCase()
+          .includes(query) ||
+          String(rep.phoneNumber ?? "")
+            .toLowerCase()
+            .includes(query) ||
+          String(rep.location ?? "")
+            .toLowerCase()
+            .includes(query))
     );
   }, [representatives, searchQuery]);
 
@@ -169,16 +190,14 @@ export default function RepresentativesScreen(): JSX.Element {
   const safeTop = insets.top > 0 ? insets.top : 47;
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#f8fafd" }}>
+    <View className="flex-1 bg-[#f8fafd]">
       <StatusBar style="light" />
 
       {/* Blue Header Banner */}
-      <View style={{ backgroundColor: "#0F4C92", paddingTop: safeTop, paddingBottom: 44 }}>
+      <View className="bg-[#0F4C92] pb-11" style={{ paddingTop: safeTop }}>
         <View className="flex-row-reverse items-center justify-between px-6 py-3">
           {/* Title on Right */}
-          <Text style={{ fontFamily: "System" }} className="text-xl font-bold text-white text-right">
-            إدارة المندوبين
-          </Text>
+          <Text className="text-xl font-bold text-white text-right">إدارة المندوبين</Text>
 
           {/* Hamburger Menu Icon on Left (Opens Sidebar Drawer) */}
           <TouchableOpacity onPress={() => toggleSidebar(true)} className="p-1" activeOpacity={0.7}>
@@ -188,16 +207,7 @@ export default function RepresentativesScreen(): JSX.Element {
       </View>
 
       {/* Content Container (Rounded White Card overlapping/below) */}
-      <View
-        style={{
-          flex: 1,
-          marginTop: -24,
-          borderTopLeftRadius: 28,
-          borderTopRightRadius: 28,
-          backgroundColor: "#f8fafd",
-          overflow: "hidden",
-        }}
-      >
+      <View className="flex-1 -mt-6 rounded-t-[28px] bg-[#f8fafd] overflow-hidden">
         {/* Search input section */}
         <View className="px-6 pt-6 pb-4">
           <View className="relative justify-center">
@@ -206,26 +216,9 @@ export default function RepresentativesScreen(): JSX.Element {
               onChangeText={setSearchQuery}
               placeholder="ابحث عن مندوب..."
               placeholderTextColor="#a0aec0"
-              style={{
-                fontFamily: "System",
-                height: 48,
-                borderRadius: 16,
-                borderWidth: 1.5,
-                borderColor: "#e2e8f0",
-                backgroundColor: "#ffffff",
-                paddingRight: 44,
-                paddingLeft: 16,
-                fontSize: 14,
-                color: "#1a202c",
-                fontWeight: "600",
-                textAlign: "right",
-              }}
+              className="h-12 rounded-2xl border-[1.5px] border-gray-200 bg-white pr-11 pl-4 text-sm text-gray-800 font-semibold text-right"
             />
-            <Search
-              size={20}
-              color="#a0aec0"
-              style={{ position: "absolute", right: 16 }}
-            />
+            <Search size={20} color="#a0aec0" style={{ position: "absolute", right: 16 }} />
           </View>
 
           {/* "صفحة" (Page) label mimicking mockup */}
@@ -247,7 +240,9 @@ export default function RepresentativesScreen(): JSX.Element {
             className="px-6"
           >
             <AlertCircle size={48} className="text-danger mb-2" />
-            <Text className="text-danger text-center font-bold text-base mb-2">تعذر تحميل بيانات المندوبين</Text>
+            <Text className="text-danger text-center font-bold text-base mb-2">
+              تعذر تحميل بيانات المندوبين
+            </Text>
             <Text className="text-gray-500 text-center text-xs mb-4">{error.message}</Text>
             <TouchableOpacity
               onPress={() => refetch()}
@@ -256,6 +251,17 @@ export default function RepresentativesScreen(): JSX.Element {
               <Text className="text-white font-bold">إعادة المحاولة</Text>
             </TouchableOpacity>
           </ScrollView>
+        ) : representatives.length === 0 ? (
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1, justifyContent: "center", alignItems: "center" }}
+            refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
+            className="px-6"
+          >
+            <Users size={48} color="#cbd5e1" className="mb-2" />
+            <Text className="text-gray-500 font-bold text-center">
+              لا يوجد مندوبين مسجلين حالياً
+            </Text>
+          </ScrollView>
         ) : filteredRepresentatives.length === 0 ? (
           <ScrollView
             contentContainerStyle={{ flexGrow: 1, justifyContent: "center", alignItems: "center" }}
@@ -263,11 +269,17 @@ export default function RepresentativesScreen(): JSX.Element {
             className="px-6"
           >
             <Users size={48} color="#cbd5e1" className="mb-2" />
-            <Text className="text-gray-500 font-bold text-center">لا يوجد مندوبين مسجلين حالياً</Text>
+            <Text className="text-gray-500 font-bold text-center">
+              لا يوجد مندوبين مطابقين للبحث
+            </Text>
           </ScrollView>
         ) : (
           <ScrollView
-            contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: insets.bottom + 40, gap: 16 }}
+            contentContainerStyle={{
+              paddingHorizontal: 24,
+              paddingBottom: insets.bottom + 40,
+              gap: 16,
+            }}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={["#0F4C92"]} />
@@ -306,7 +318,9 @@ export default function RepresentativesScreen(): JSX.Element {
                     </Text>
                     <View className="flex-row-reverse items-center gap-1.5">
                       <Text className="text-[11px] font-bold text-emerald-600">متاح</Text>
-                      <Text className={`text-[11px] font-semibold ${rep.isActive ? "text-emerald-600" : "text-gray-400"}`}>
+                      <Text
+                        className={`text-[11px] font-semibold ${rep.isActive ? "text-emerald-600" : "text-gray-400"}`}
+                      >
                         {rep.isActive ? "نشط" : "غير نشط"}
                       </Text>
                     </View>
@@ -315,8 +329,7 @@ export default function RepresentativesScreen(): JSX.Element {
                   {/* Avatar */}
                   <Image
                     source={{ uri: getAvatarUrl(rep.id) }}
-                    style={{ width: 44, height: 44, borderRadius: 22 }}
-                    className="bg-gray-100"
+                    className="w-11 h-11 rounded-full bg-gray-100"
                   />
                 </View>
               </View>
@@ -327,11 +340,10 @@ export default function RepresentativesScreen(): JSX.Element {
 
       {/* Sidebar Overlay */}
       {isSidebarOpen && (
-        <View style={StyleSheet.absoluteFill} className="z-50 flex-row">
+        <View className="absolute inset-0 z-50 flex-row">
           {/* Backdrop (closes sidebar on press) */}
           <Pressable
-            style={StyleSheet.absoluteFill}
-            className="bg-black/40"
+            className="absolute inset-0 bg-black/40"
             onPress={() => toggleSidebar(false)}
           />
 
@@ -345,8 +357,12 @@ export default function RepresentativesScreen(): JSX.Element {
                 paddingTop: insets.top,
                 paddingBottom: Math.max(insets.bottom, 20),
                 transform: [{ translateX: slideAnim }],
+                shadowColor: "#000",
+                shadowOffset: { width: 4, height: 0 },
+                shadowOpacity: 0.1,
+                shadowRadius: 10,
+                elevation: 8,
               },
-              styles.sidebarShadow,
             ]}
             className="flex-col justify-between"
           >
@@ -355,8 +371,12 @@ export default function RepresentativesScreen(): JSX.Element {
               {/* Sidebar Header */}
               <View className="flex-row-reverse items-center justify-between px-5 py-4 border-b border-gray-100">
                 <View className="items-end">
-                  <Text className="font-extrabold text-[#0c3f7c] text-base text-right">لوحة التحكم</Text>
-                  <Text className="text-gray-400 text-[10px] font-semibold text-right">{user?.fullName || "المسؤول"}</Text>
+                  <Text className="font-extrabold text-[#0c3f7c] text-base text-right">
+                    لوحة التحكم
+                  </Text>
+                  <Text className="text-gray-400 text-[10px] font-semibold text-right">
+                    {user?.fullName || "المسؤول"}
+                  </Text>
                 </View>
                 <TouchableOpacity onPress={() => toggleSidebar(false)} className="p-1">
                   <X size={20} color="#a0aec0" />
@@ -365,13 +385,41 @@ export default function RepresentativesScreen(): JSX.Element {
 
               {/* Sidebar Links */}
               <View className="p-4 gap-2">
+                {/* Link: الملف الشخصي */}
+                <TouchableOpacity
+                  onPress={() => {
+                    toggleSidebar(false);
+                    router.push("/admin/profile");
+                  }}
+                  className="flex-row-reverse items-center gap-3 p-3.5 rounded-2xl active:bg-gray-50"
+                  activeOpacity={0.7}
+                >
+                  <User size={18} color="#718096" />
+                  <Text className="font-bold text-gray-600 text-sm text-right">الملف الشخصي</Text>
+                </TouchableOpacity>
+
                 {/* Active Link: إدارة المندوبين */}
                 <TouchableOpacity
                   className="flex-row-reverse items-center gap-3 bg-blue-50/70 p-3.5 rounded-2xl"
                   activeOpacity={0.9}
                 >
                   <Users size={18} color="#0c3f7c" />
-                  <Text className="font-extrabold text-[#0c3f7c] text-sm text-right">إدارة المندوبين</Text>
+                  <Text className="font-extrabold text-[#0c3f7c] text-sm text-right">
+                    إدارة المندوبين
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Link: إدارة الطلبات */}
+                <TouchableOpacity
+                  onPress={() => {
+                    toggleSidebar(false);
+                    router.replace("/admin/orders" as any);
+                  }}
+                  className="flex-row-reverse items-center gap-3 p-3.5 rounded-2xl active:bg-gray-50"
+                  activeOpacity={0.7}
+                >
+                  <ClipboardList size={18} color="#718096" />
+                  <Text className="font-bold text-gray-600 text-sm text-right">إدارة الطلبات</Text>
                 </TouchableOpacity>
 
                 {/* Link: إدارة الفئات */}
@@ -387,14 +435,30 @@ export default function RepresentativesScreen(): JSX.Element {
                   <Text className="font-bold text-gray-600 text-sm text-right">إدارة الفئات</Text>
                 </TouchableOpacity>
 
-                {/* Placeholder Link: إدارة المنتجات */}
+                {/* Link: إدارة المنتجات */}
                 <TouchableOpacity
-                  onPress={() => Alert.alert("قريباً", "سيتم إضافة صفحة إدارة المنتجات قريباً.")}
+                  onPress={() => {
+                    toggleSidebar(false);
+                    router.replace("/admin/products" as any);
+                  }}
+                  className="flex-row-reverse items-center gap-3 p-3.5 rounded-2xl active:bg-gray-50"
+                  activeOpacity={0.7}
+                >
+                  <Package size={18} color="#718096" />
+                  <Text className="font-bold text-gray-600 text-sm text-right">إدارة المنتجات</Text>
+                </TouchableOpacity>
+
+                {/* Link: إضافة منتج */}
+                <TouchableOpacity
+                  onPress={() => {
+                    toggleSidebar(false);
+                    router.replace("/admin/add-product" as any);
+                  }}
                   className="flex-row-reverse items-center gap-3 p-3.5 rounded-2xl active:bg-gray-50"
                   activeOpacity={0.7}
                 >
                   <ShoppingBag size={18} color="#718096" />
-                  <Text className="font-bold text-gray-600 text-sm text-right">إدارة المنتجات</Text>
+                  <Text className="font-bold text-gray-600 text-sm text-right">إضافة منتج</Text>
                 </TouchableOpacity>
 
                 {/* Placeholder Link: إعدادات النظام */}
@@ -426,13 +490,3 @@ export default function RepresentativesScreen(): JSX.Element {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  sidebarShadow: {
-    shadowColor: "#000",
-    shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-});

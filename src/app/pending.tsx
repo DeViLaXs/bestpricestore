@@ -3,7 +3,16 @@ import { useState, useEffect } from "react";
 import { View, ScrollView, Alert, Animated, Image, Linking } from "react-native";
 import { router } from "expo-router";
 import { Button, Typography } from "heroui-native";
-import { Clock, Check, Ellipsis, Lock, Loader2, RefreshCw, MessageSquare, LogOut } from "lucide-react-native";
+import {
+  Clock,
+  Check,
+  Ellipsis,
+  Lock,
+  Loader2,
+  RefreshCw,
+  MessageSquare,
+  LogOut,
+} from "lucide-react-native";
 import { withUniwind } from "uniwind";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -19,10 +28,21 @@ const StyledMessageSquare = withUniwind(MessageSquare);
 const StyledLogOut = withUniwind(LogOut);
 
 export default function PendingScreen(): JSX.Element {
-  const { user, logoutMutation, meMutation } = useAuth();
+  const { user, isAdmin, logoutMutation, meMutation } = useAuth();
   const insets = useSafeAreaInsets();
   const [isChecking, setIsChecking] = useState(false);
   const [pulseAnim] = useState(() => new Animated.Value(1));
+
+  // Route guard: redirect active users or admins
+  useEffect(() => {
+    if (user) {
+      if (isAdmin) {
+        router.replace("/admin/representatives");
+      } else if (user.isActive) {
+        router.replace("/" as any);
+      }
+    }
+  }, [user, isAdmin]);
 
   // Pulse animation for the status icon
   useEffect(() => {
@@ -95,7 +115,7 @@ export default function PendingScreen(): JSX.Element {
               await logoutMutation.mutateAsync();
               router.replace("/login");
             } catch (err) {
-              console.error("Logout failed:", err);
+              console.log("Logout failed:", err);
             }
           },
         },

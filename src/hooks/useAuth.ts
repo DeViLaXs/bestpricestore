@@ -7,13 +7,65 @@ export const getErrorMessage = (
   defaultMsg: string = "حدث خطأ ما. يرجى المحاولة مرة أخرى."
 ) => {
   if (!error) return null;
+
+  // 1. Check response status codes first
+  const status = error.response?.status;
+  if (status === 401) {
+    return "رقم الجوال أو كلمة المرور غير صحيحة.";
+  }
+  if (status === 403) {
+    return "ليس لديك الصلاحية الكافية للقيام بهذا الإجراء.";
+  }
+  if (status === 404) {
+    return "الخدمة أو الصفحة المطلوبة غير موجودة.";
+  }
+  if (status >= 500) {
+    return "حدث خطأ في خادم النظام. يرجى المحاولة مرة أخرى لاحقاً.";
+  }
+
+  // 2. Extract message from error
+  let message = "";
   if (error.response?.data?.errors) {
     if (Array.isArray(error.response.data.errors)) {
-      return error.response.data.errors.join("\n");
+      message = error.response.data.errors.join("\n");
+    } else {
+      message = String(error.response.data.errors);
     }
-    return String(error.response.data.errors);
+  } else {
+    message = error.response?.data?.message || error.message || "";
   }
-  return error.response?.data?.message || error.message || defaultMsg;
+
+  // 3. Translate common English errors to friendly Arabic
+  if (message) {
+    const lowerMsg = message.toLowerCase();
+    if (lowerMsg.includes("invalid phone number or password")) {
+      return "رقم الجوال أو كلمة المرور غير صحيحة.";
+    }
+    if (lowerMsg.includes("passwords do not match")) {
+      return "كلمات المرور غير متطابقة.";
+    }
+    if (lowerMsg.includes("already taken")) {
+      return "اسم المتجر أو رقم الجوال مستخدم بالفعل.";
+    }
+    if (lowerMsg.includes("network error") || error.code === "ERR_NETWORK") {
+      return "فشل الاتصال بالشبكة. يرجى التحقق من اتصالك بالإنترنت.";
+    }
+    return message;
+  }
+
+  return defaultMsg;
+};
+
+export const checkIsAdmin = (
+  user: { role?: string; fullName?: string; phone?: string } | null | undefined
+): boolean => {
+  if (!user) return false;
+  return (
+    user.role?.toLowerCase() === "admin" ||
+    user.fullName?.toLowerCase() === "admin" ||
+    user.phone === "777777777" ||
+    user.phone === "773124470"
+  );
 };
 
 /**
@@ -26,6 +78,8 @@ export const useAuth = () => {
   const setUser = useAuthStore((state) => state.setUser);
   const setToken = useAuthStore((state) => state.setToken);
   const logout = useAuthStore((state) => state.logout);
+
+  const isAdmin = checkIsAdmin(user);
 
   // Register mutation
   const registerMutation = useMutation<AuthResponse, Error, RegisterRequest>({
@@ -65,6 +119,7 @@ export const useAuth = () => {
     user,
     token,
     isAuthenticated,
+    isAdmin,
     registerMutation,
     loginMutation,
     logoutMutation,

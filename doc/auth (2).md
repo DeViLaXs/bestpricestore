@@ -12,7 +12,8 @@ This document provides all the necessary details to integrate with the authentic
 - **Authentication Required**: No
 
 ### Description
-This endpoint allows a new user to create an account. Upon successful registration, the user is automatically assigned the role of **"Representative"**, and their account status (`IsActive`) is set to `false` pending administrative approval. 
+
+This endpoint allows a new user to create an account. Upon successful registration, the user is automatically assigned the role of **"Representative"**, and their account status (`IsActive`) is set to `false` pending administrative approval.
 
 The response will contain a long-lived JWT token that can be used for subsequent authenticated requests.
 
@@ -29,6 +30,7 @@ The response will contain a long-lived JWT token that can be used for subsequent
 ```
 
 #### Field Requirements:
+
 - `StoreName` (string, required): Minimum length 2, maximum length 50.
 - `PhoneNumber` (string, required): Valid phone number format, maximum length 100.
 - `Password` (string, required): Minimum length 6. No special characters, uppercase, or lowercase letters are strictly required.
@@ -38,6 +40,7 @@ The response will contain a long-lived JWT token that can be used for subsequent
 ### Responses
 
 #### Successful Registration (201 Created)
+
 Returns the generated JWT token along with user details.
 
 ```json
@@ -58,6 +61,7 @@ Returns the generated JWT token along with user details.
 ```
 
 #### Validation / Registration Errors (400 Bad Request)
+
 If the request is malformed, passwords do not match, or validation fails (e.g., store name already taken).
 
 ```json
@@ -65,10 +69,7 @@ If the request is malformed, passwords do not match, or validation fails (e.g., 
   "statusCode": 400,
   "success": false,
   "data": null,
-  "errors": [
-    "Passwords do not match",
-    "StoreName 'johndoe' is already taken."
-  ]
+  "errors": ["Passwords do not match", "StoreName 'johndoe' is already taken."]
 }
 ```
 
@@ -82,6 +83,7 @@ If the request is malformed, passwords do not match, or validation fails (e.g., 
 - **Authentication Required**: No
 
 ### Description
+
 Authenticates an existing user using their **phone number** and **password**. Upon successful authentication, a JWT token is returned.
 
 ### Request Body (LoginRequestDTO)
@@ -94,12 +96,14 @@ Authenticates an existing user using their **phone number** and **password**. Up
 ```
 
 #### Field Requirements:
+
 - `PhoneNumber` (string, required): Valid phone number format matching the registered user.
 - `Password` (string, required): Minimum length 6.
 
 ### Responses
 
 #### Successful Login (200 OK)
+
 Returns the generated JWT token and user details.
 
 ```json
@@ -120,6 +124,7 @@ Returns the generated JWT token and user details.
 ```
 
 #### Unauthorized (401 Unauthorized)
+
 If the phone number is not found or the password is incorrect.
 
 ```json
@@ -127,9 +132,7 @@ If the phone number is not found or the password is incorrect.
   "statusCode": 401,
   "success": false,
   "data": null,
-  "errors": [
-    "Invalid phone number or password."
-  ]
+  "errors": ["Invalid phone number or password."]
 }
 ```
 
@@ -142,11 +145,13 @@ If the phone number is not found or the password is incorrect.
 - **Authentication Required**: Yes (Bearer Token)
 
 ### Description
+
 Returns the details and role of the currently authenticated user based on their JWT token. This is extremely useful for the frontend to rehydrate user state on page reloads.
 
 ### Request Headers
-| Header | Value |
-|--------|-------|
+
+| Header          | Value                     |
+| --------------- | ------------------------- |
 | `Authorization` | `Bearer {your_jwt_token}` |
 
 ### Responses
@@ -170,10 +175,12 @@ Returns the details and role of the currently authenticated user based on their 
 ```
 
 #### Unauthorized (401 Unauthorized)
+
 If the user's token is invalid, missing, or expired.
 
 ---
 
 ## Notes for Integrators
+
 - The JWT Token provided in the successful response has an expiration date set 100 years in the future, effectively making it unexpired for testing and long-term agent integrations.
 - Always include the token in the `Authorization` header as a Bearer token (`Authorization: Bearer <token>`) when calling protected endpoints.
