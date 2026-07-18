@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { userService, Representative, UserActionResponse } from "../services/user.service";
+import { userService } from "../services/user.service";
+import { Representative, UserActionResponse, UpdateProfileRequest } from "../types";
 
 /**
  * Hook to retrieve the list of representatives.
@@ -38,5 +39,14 @@ export const useSuspendRepresentativeMutation = () => {
       // Invalidate the representatives list to trigger a refetch
       queryClient.invalidateQueries({ queryKey: ["representatives"] });
     },
+  });
+};
+
+/**
+ * Hook to update the current user's profile details.
+ */
+export const useUpdateProfileMutation = () => {
+  return useMutation<UserActionResponse, Error, UpdateProfileRequest>({
+    mutationFn: (data) => userService.updateProfile(data),
   });
 };

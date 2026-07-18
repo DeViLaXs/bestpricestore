@@ -16,43 +16,41 @@ import { useFocusEffect, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { withUniwind } from "uniwind";
 import {
-  List,
   Search,
   SlidersHorizontal,
   Package,
   AlertCircle,
-  Compass,
   Tag,
 } from "lucide-react-native";
 
-import { useInfiniteProductsQuery, useCurrenciesQuery } from "../../hooks/useProducts";
+import { useInfiniteProductsQuery, useCurrenciesQuery, useGetProductDetails } from "../../hooks/useProducts";
 import { useCategoriesQuery } from "../../hooks/useCategories";
-import { productService } from "../../services/product.service";
 import { useCartStore } from "../../store/cartStore";
 
 // Wrap Lucide icons with Uniwind for compatibility with classNames
-const StyledList = withUniwind(List);
 const StyledSearch = withUniwind(Search);
 const StyledSlidersHorizontal = withUniwind(SlidersHorizontal);
 const StyledPackage = withUniwind(Package);
 const StyledAlertCircle = withUniwind(AlertCircle);
-const StyledCompass = withUniwind(Compass);
 const StyledTag = withUniwind(Tag);
 
-// Loading Skeleton Component for Product Cards
+// Loading Skeleton Component for Product Cards (matching horizontal layout)
 const ProductCardSkeleton = (): JSX.Element => (
-  <View className="flex-1 bg-white rounded-3xl p-3.5 border border-gray-100 shadow-xs m-1.5 justify-between">
-    <View className="w-full h-32 rounded-2xl bg-gray-100" />
-    <View className="items-center mt-3 mb-2 px-1 gap-1.5">
-      <View className="w-3/4 h-4 bg-gray-100 rounded" />
-      <View className="w-1/2 h-3.5 bg-gray-100 rounded" />
+  <View className="w-full bg-white rounded-2xl p-3.5 border border-gray-100/80 flex-row-reverse items-center justify-between mb-2">
+    <View className="flex-row-reverse items-center flex-1">
+      <View className="w-16 h-16 rounded-xl bg-gray-100" />
+      <View className="items-end flex-1 pr-3 gap-1.5">
+        <View className="w-3/4 h-3.5 bg-gray-100 rounded" />
+        <View className="w-1/2 h-3 bg-gray-100 rounded" />
+      </View>
     </View>
-    <View className="w-full h-10 bg-gray-100 rounded-2xl mt-1" />
+    <View className="w-16 h-8 bg-gray-100 rounded-xl" />
   </View>
 );
 
 export default function ShopScreen(): JSX.Element {
   const insets = useSafeAreaInsets();
+  const getProductDetails = useGetProductDetails();
 
   // Search and Filter States
   const [searchQuery, setSearchQuery] = useState("");
@@ -134,7 +132,7 @@ export default function ShopScreen(): JSX.Element {
   // Add product to cart action
   const handleAddToCart = async (productItem: any) => {
     try {
-      const detailedProduct = await productService.getProduct(productItem.id);
+      const detailedProduct = await getProductDetails(productItem.id);
       if (!detailedProduct || !detailedProduct.images || detailedProduct.images.length === 0) {
         Alert.alert("خطأ", "عذرًا، لا تتوفر تفاصيل أو صور لهذا المنتج حاليًا.");
         return;
@@ -185,121 +183,111 @@ export default function ShopScreen(): JSX.Element {
   // Safe area top calculation
   const safeTop = insets.top > 0 ? insets.top : 47;
 
-  // Header Component
-  const renderHeader = () => (
-    <View className="bg-[#f8fafd] pb-4">
-      {/* Top Title & Menu Bar */}
-      <View className="flex-row items-center justify-between px-6 py-4">
-        {/* Menu Icon (Left) */}
-        <TouchableOpacity
-          className="w-11 h-11 rounded-2xl border border-gray-100 bg-white items-center justify-center shadow-xs active:opacity-80"
-          activeOpacity={0.8}
-        >
-          <StyledList size={22} className="text-[#0c3f7c]" />
-        </TouchableOpacity>
-
-        {/* Title (Right) */}
-        <Text className="text-[26px] font-black text-[#0c3f7c] tracking-tight text-right">
-          تصفح المنتجات
-        </Text>
+  // Header & Filters component rendered statically above list to keep it fixed
+  const renderFixedHeader = () => (
+    <View className="bg-white border-b border-gray-100/50">
+      {/* Top Title Bar */}
+      <View className="bg-white" style={{ paddingTop: safeTop }}>
+        <View className="flex-row-reverse items-center px-6 py-2.5">
+          <Text className="text-lg font-bold text-gray-900 text-right">تصفح المنتجات</Text>
+        </View>
       </View>
 
       {/* Search Input Box */}
-      <View className="px-6 mb-5">
+      <View className="px-6 pt-3 pb-2 bg-[#f8fafd]">
         <View className="relative justify-center">
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="ابحث عن منتج..."
             placeholderTextColor="#a0aec0"
-            className="h-12 rounded-2xl border border-gray-200 bg-white pr-11 pl-11 text-sm text-gray-800 font-semibold text-right"
+            className="h-10 rounded-xl border-[1.5px] border-gray-200 bg-white pr-10 pl-4 text-xs text-gray-800 font-semibold text-right"
           />
-          <StyledSearch size={20} className="text-gray-400 absolute right-4" />
-          <StyledCompass size={20} className="text-[#0c3f7c] absolute left-4" />
+          <StyledSearch size={18} className="text-gray-400 absolute right-4" />
         </View>
       </View>
 
       {/* Category Horizontal Scrollbar */}
-      <FlatList
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        data={[
-          { id: null, name: "الكل" },
-          ...categories,
-        ]}
-        keyExtractor={(item) => (item.id === null ? "all" : item.id.toString())}
-        contentContainerStyle={{ paddingHorizontal: 24, gap: 10 }}
-        inverted // Ensures layout flows properly in RTL
-        renderItem={({ item }) => {
-          const isSelected = selectedCategoryId === item.id;
-          return (
+      <View className="border-b border-gray-100 bg-[#f8fafd] pb-3">
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={[
+            { id: null, name: "الكل" },
+            ...categories,
+          ]}
+          keyExtractor={(item) => (item.id === null ? "all" : item.id.toString())}
+          contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+          inverted
+          renderItem={({ item }) => {
+            const isSelected = selectedCategoryId === item.id;
+            return (
+              <TouchableOpacity
+                onPress={() => handleCategoryPress(item.id)}
+                activeOpacity={0.8}
+                className={`flex-row items-center gap-1 px-3 py-1.5 rounded-full border ${
+                  isSelected
+                    ? "bg-[#0F4C92] border-[#0F4C92]"
+                    : "bg-white border-gray-200"
+                }`}
+              >
+                {item.id !== null && (
+                  <StyledTag
+                    size={12}
+                    className={isSelected ? "text-white" : "text-gray-400"}
+                  />
+                )}
+                <Text
+                  className={`text-[11px] font-bold ${
+                    isSelected ? "text-white" : "text-gray-600"
+                  }`}
+                >
+                  {item.name}
+                </Text>
+              </TouchableOpacity>
+            );
+          }}
+          ListHeaderComponent={
             <TouchableOpacity
-              onPress={() => handleCategoryPress(item.id)}
+              onPress={handlePriceSortPress}
               activeOpacity={0.8}
-              className={`flex-row items-center gap-1.5 px-4 py-2.5 rounded-full border ${
-                isSelected
-                  ? "bg-[#0c3f7c] border-[#0c3f7c]"
+              className={`flex-row items-center gap-1 px-3 py-1.5 rounded-full border mr-2 ${
+                priceSort !== "none"
+                  ? "bg-[#0F4C92] border-[#0F4C92]"
                   : "bg-white border-gray-200"
               }`}
             >
-              {item.id !== null && (
-                <StyledTag
-                  size={14}
-                  className={isSelected ? "text-white" : "text-gray-400"}
-                />
-              )}
+              <StyledSlidersHorizontal
+                size={12}
+                className={priceSort !== "none" ? "text-white" : "text-gray-600"}
+              />
               <Text
-                className={`text-xs font-bold ${
-                  isSelected ? "text-white" : "text-gray-600"
+                className={`text-[11px] font-bold ${
+                  priceSort !== "none" ? "text-white" : "text-gray-600"
                 }`}
               >
-                {item.name}
+                {priceSort === "none"
+                  ? "فلتر السعر"
+                  : priceSort === "asc"
+                    ? "السعر: تصاعدي"
+                    : "السعر: تنازلي"}
               </Text>
             </TouchableOpacity>
-          );
-        }}
-        ListHeaderComponent={
-          // Price filter pill appended at the end/front depending on RTL setup
-          <TouchableOpacity
-            onPress={handlePriceSortPress}
-            activeOpacity={0.8}
-            className={`flex-row items-center gap-1.5 px-4 py-2.5 rounded-full border mr-2.5 ${
-              priceSort !== "none"
-                ? "bg-[#0c3f7c] border-[#0c3f7c]"
-                : "bg-white border-gray-200"
-            }`}
-          >
-            <StyledSlidersHorizontal
-              size={14}
-              className={priceSort !== "none" ? "text-white" : "text-gray-600"}
-            />
-            <Text
-              className={`text-xs font-bold ${
-                priceSort !== "none" ? "text-white" : "text-gray-600"
-              }`}
-            >
-              {priceSort === "none"
-                ? "فلتر السعر"
-                : priceSort === "asc"
-                  ? "السعر: تصاعدي"
-                  : "السعر: تنازلي"}
-            </Text>
-          </TouchableOpacity>
-        }
-      />
+          }
+        />
+      </View>
     </View>
   );
 
   // Initial loading state
   if (isLoading && !isRefetching) {
     return (
-      <View className="flex-1 bg-[#f8fafd]" style={{ paddingTop: safeTop }}>
+      <View className="flex-1 bg-white">
         <StatusBar style="dark" />
-        {renderHeader()}
-        <View className="flex-1 px-4.5 pt-3">
+        {renderFixedHeader()}
+        <View className="flex-1 bg-[#f8fafd] px-4 pt-3">
           <FlatList
             data={Array.from({ length: 6 })}
-            numColumns={2}
             keyExtractor={(_, index) => index.toString()}
             renderItem={() => <ProductCardSkeleton />}
           />
@@ -322,7 +310,7 @@ export default function ShopScreen(): JSX.Element {
         </Text>
         <TouchableOpacity
           onPress={() => refetch()}
-          className="bg-[#0c3f7c] px-8 py-3.5 rounded-2xl shadow-md active:opacity-90"
+          className="bg-[#0F4C92] px-8 py-3.5 rounded-2xl shadow-md active:opacity-90"
         >
           <Text className="text-white font-extrabold text-sm">إعادة المحاولة</Text>
         </TouchableOpacity>
@@ -331,93 +319,109 @@ export default function ShopScreen(): JSX.Element {
   }
 
   return (
-    <View className="flex-1 bg-[#f8fafd]" style={{ paddingTop: safeTop }}>
+    <View className="flex-1 bg-white">
       <StatusBar style="dark" />
-      <FlatList
-        data={sortedProducts}
-        numColumns={2}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={{
-          paddingHorizontal: 18,
-          paddingTop: 10,
-          paddingBottom: insets.bottom + 90, // Spacing for tab-bar
-        }}
-        ListHeaderComponent={renderHeader}
-        ListHeaderComponentStyle={{
-          marginHorizontal: -18,
-          marginBottom: 10,
-        }}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            onPress={() => router.push(`/product-details?id=${item.id}` as any)}
-            activeOpacity={0.95}
-            className="flex-1 bg-white rounded-3xl p-3 border border-gray-100 shadow-xs m-1.5 justify-between"
-          >
-            {/* Image Section */}
-            {item.primaryImageUrl ? (
-              <Image
-                source={{ uri: item.primaryImageUrl }}
-                className="w-full h-32 rounded-2xl bg-gray-50"
-                resizeMode="cover"
-              />
-            ) : (
-              <View className="w-full h-32 rounded-2xl bg-gray-50 items-center justify-center">
-                <StyledPackage size={32} className="text-gray-300" />
-              </View>
-            )}
+      {renderFixedHeader()}
 
-            {/* Product Details Section */}
-            <View className="items-center mt-3 mb-2 px-1">
-              <Text
-                className="font-black text-gray-800 text-xs text-center leading-5"
-                numberOfLines={2}
-              >
-                {item.name}
-              </Text>
-              <Text className="font-extrabold text-[#0c3f7c] text-xs mt-1">
-                {item.price} {getCurrencySymbol(item.currencyId)}
-              </Text>
-            </View>
-
-            {/* Add to Cart Button */}
+      <View className="flex-1 bg-[#f8fafd]">
+        <FlatList
+          data={sortedProducts}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 12,
+            paddingBottom: insets.bottom + 90, // Spacing for tab-bar
+            gap: 10,
+          }}
+          renderItem={({ item }) => (
             <TouchableOpacity
-              onPress={() => handleAddToCart(item)}
-              activeOpacity={0.85}
-              className="bg-[#0c3f7c] w-full py-2.5 rounded-2xl items-center justify-center mt-1 active:opacity-95"
+              onPress={() => router.push(`/product-details?id=${item.id}` as any)}
+              activeOpacity={0.95}
+              className="bg-white rounded-2xl p-3 flex-row-reverse justify-between items-stretch border border-gray-100/80"
+              style={{
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.03,
+                shadowRadius: 5,
+                elevation: 1,
+              }}
             >
-              <Text className="text-white font-extrabold text-xs">أضف للسلة</Text>
+              {/* Right Side: Product Image & Details (RTL order) */}
+              <View className="flex-row-reverse items-center flex-1">
+                {/* Product Image */}
+                {item.primaryImageUrl ? (
+                  <Image
+                    source={{ uri: item.primaryImageUrl }}
+                    className="w-16 h-16 rounded-xl bg-gray-50"
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View className="w-16 h-16 rounded-xl bg-gray-100 items-center justify-center">
+                    <StyledPackage size={20} className="text-gray-400" />
+                  </View>
+                )}
+
+                {/* Product Text details */}
+                <View className="items-end flex-1 pr-3 pl-1">
+                  <Text
+                    className="font-extrabold text-gray-900 text-sm mb-1 text-right"
+                    numberOfLines={2}
+                  >
+                    {item.name}
+                  </Text>
+
+                  <Text className="font-extrabold text-[#0F4C92] text-xs text-right mt-1">
+                    {item.price} {getCurrencySymbol(item.currencyId)}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Left Side: Add to Cart Action */}
+              <View className="justify-center pl-0.5">
+                <TouchableOpacity
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleAddToCart(item);
+                  }}
+                  activeOpacity={0.85}
+                  className="bg-[#0F4C92] px-3.5 py-2 rounded-xl items-center justify-center"
+                >
+                  <Text className="text-white font-extrabold text-[10px]">أضف للسلة</Text>
+                </TouchableOpacity>
+              </View>
             </TouchableOpacity>
-          </TouchableOpacity>
-        )}
-        ListEmptyComponent={
-          <View className="flex-1 justify-center items-center py-20 px-6">
-            <StyledPackage size={56} className="text-gray-300 mb-4" />
-            <Text className="text-gray-500 font-extrabold text-base text-center">
-              لا توجد منتجات مطابقة للبحث
-            </Text>
-          </View>
-        }
-        onEndReached={() => {
-          if (hasNextPage && !isFetchingNextPage) {
-            fetchNextPage();
-          }
-        }}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={
-          isFetchingNextPage ? (
-            <View className="py-6 justify-center items-center">
-              <ActivityIndicator size="small" color="#0c3f7c" />
+          )}
+          ListEmptyComponent={
+            <View className="flex-1 justify-center items-center py-20 px-6">
+              <StyledPackage size={56} className="text-gray-300 mb-4" />
+              <Text className="text-gray-500 font-extrabold text-base text-center">
+                لا توجد منتجات مطابقة للبحث
+              </Text>
             </View>
-          ) : null
-        }
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
-            colors={["#0c3f7c"]}
-          />
-        }
-      />
+          }
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) {
+              fetchNextPage();
+            }
+          }}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <View className="mt-2">
+                <ProductCardSkeleton />
+                <ProductCardSkeleton />
+              </View>
+            ) : null
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              colors={["#0F4C92"]}
+            />
+          }
+        />
+      </View>
     </View>
   );
 }

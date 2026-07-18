@@ -57,7 +57,7 @@ export default function LoginScreen(): JSX.Element {
       // Delay navigation slightly so user can see success state
       setTimeout(() => {
         if (checkIsAdmin(res.user)) {
-          router.replace("/admin/representatives");
+          router.replace("/admin/dashboard");
         } else if (res.user.isActive) {
           router.replace("/" as any);
         } else {

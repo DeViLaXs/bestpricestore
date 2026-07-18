@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { adminOrderService, AdminOrderSummary } from "../services/admin-order.service";
-import { OrderResponseData } from "../services/order.service";
+import { adminOrderService } from "../services/admin-order.service";
+import { AdminOrderSummary, OrderResponseData } from "../types";
 
 /**
  * Hook to retrieve all user orders for admin.

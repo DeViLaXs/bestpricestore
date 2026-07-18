@@ -1,16 +1,5 @@
 import { api } from "../api/api";
-import { ApiResponseEnvelope } from "./product.service";
-import { OrderResponseData } from "./order.service";
-
-export interface AdminOrderSummary {
-  id: number;
-  orderStatusId: number;
-  totalAmountYer: number;
-  totalAmountSar: number;
-  createdAt: string;
-  userId: number;
-  storeName: string;
-}
+import { ApiResponseEnvelope, OrderResponseData, AdminOrderSummary } from "../types";
 
 export const adminOrderService = {
   /**

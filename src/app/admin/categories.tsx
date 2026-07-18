@@ -21,7 +21,8 @@ import {
   useUpdateCategoryMutation,
   useDeleteCategoryMutation,
 } from "../../hooks/useCategories";
-import { Category } from "../../services/category.service";
+import { Category } from "../../types";
+import CategoryListSkeleton from "../../components/CategoryListSkeleton";
 
 export default function CategoriesScreen(): JSX.Element {
   const insets = useSafeAreaInsets();
@@ -30,7 +31,6 @@ export default function CategoriesScreen(): JSX.Element {
   // Route guard: only allow users with Admin role or credentials
   useEffect(() => {
     if (user && !isAdmin) {
-      Alert.alert("تنبيه", "عذراً، هذه الصفحة مخصصة للمسؤولين فقط.");
       router.replace("/" as any);
     }
   }, [user, isAdmin]);
@@ -129,39 +129,30 @@ export default function CategoriesScreen(): JSX.Element {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#f8fafd" }}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
-      {/* Blue Header Banner */}
-      <View style={{ backgroundColor: "#0F4C92", paddingTop: safeTop, paddingBottom: 44 }}>
-        <View className="flex-row items-center justify-between px-6 py-3">
+      {/* Clean White Header Banner */}
+      <View className="bg-white border-b border-gray-100/50" style={{ paddingTop: safeTop }}>
+        <View className="flex-row items-center justify-between px-6 py-2.5">
           {/* Back Button on Left */}
           <TouchableOpacity
-            onPress={() => router.replace("/admin/representatives")}
+            onPress={() => router.replace("/admin/more")}
             className="p-1"
             activeOpacity={0.7}
           >
-            <ArrowLeft size={28} color="#ffffff" />
+            <ArrowLeft size={24} color="#1a202c" />
           </TouchableOpacity>
 
           {/* Title on Right */}
-          <Text
-            style={{ fontFamily: "System" }}
-            className="text-xl font-bold text-white text-right"
-          >
-            إدارة الفئات
-          </Text>
+          <Text className="text-lg font-bold text-gray-900 text-right">إدارة الفئات</Text>
         </View>
       </View>
 
-      {/* Content Container (Rounded White Card overlapping/below) */}
+      {/* Content Container */}
       <View
         style={{
           flex: 1,
-          marginTop: -24,
-          borderTopLeftRadius: 28,
-          borderTopRightRadius: 28,
           backgroundColor: "#f8fafd",
-          overflow: "hidden",
         }}
       >
         <ScrollView
@@ -266,9 +257,8 @@ export default function CategoriesScreen(): JSX.Element {
 
           {/* Categories List */}
           {isLoading && !isRefetching ? (
-            <View className="justify-center items-center py-10">
-              <ActivityIndicator size="large" color="#0F4C92" />
-              <Text className="text-gray-500 mt-2 font-semibold">جاري تحميل البيانات...</Text>
+            <View className="pt-2">
+              <CategoryListSkeleton count={5} />
             </View>
           ) : error ? (
             <View className="justify-center items-center py-10 px-6">

@@ -21,7 +21,7 @@ export default function TabsLayout(): JSX.Element | null {
       if (!isAuthenticated) {
         router.replace("/login");
       } else if (isAdmin) {
-        router.replace("/admin/representatives");
+        router.replace("/admin/dashboard");
       } else if (user && !user.isActive) {
         router.replace("/pending");
       }
@@ -43,10 +43,10 @@ export default function TabsLayout(): JSX.Element | null {
         const safeBottom = insets.bottom > 0 ? insets.bottom : 28;
         return (
           <View
-            className="flex-row bg-white border-t border-gray-100 shadow-lg items-center justify-between absolute bottom-0 left-0 right-0 px-3"
+            className="flex-row bg-white border-t border-gray-100 shadow-lg items-center justify-between absolute bottom-0 left-0 right-0 px-3 rounded-t-[28px]"
             style={{
               paddingBottom: safeBottom,
-              height: 64 + safeBottom,
+              height: 62 + safeBottom,
             }}
           >
             {state.routes.map((route, index) => {
@@ -73,7 +73,7 @@ export default function TabsLayout(): JSX.Element | null {
                     className="flex-1 items-center justify-center z-[999]"
                     activeOpacity={0.8}
                   >
-                    <View className="w-14 h-14 rounded-full bg-[#0c3f7c] items-center justify-center -mt-8 border-4 border-white shadow-lg relative">
+                    <View className="w-14 h-14 rounded-full bg-[#0F4C92] items-center justify-center -mt-8 border-4 border-white shadow-lg relative">
                       <ShoppingCart size={24} color="#ffffff" />
                       {cartItemsCount > 0 && (
                         <View className="absolute -top-1.5 -right-1.5 bg-red-500 rounded-full min-w-5 h-5 px-1 items-center justify-center border-2 border-white">
@@ -99,7 +99,7 @@ export default function TabsLayout(): JSX.Element | null {
                 label = "الشاشة الرئيسية";
               }
 
-              const activeColor = "#0c3f7c"; // Navy blue
+              const activeColor = "#0F4C92"; // Blue active tab color
               const inactiveColor = "#9ca3af"; // Gray
 
               const renderTabIcon = (routeName: string, color: string, size: number) => {

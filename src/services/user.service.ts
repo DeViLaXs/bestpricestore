@@ -1,36 +1,5 @@
 import { api } from "../api/api";
-
-export interface Representative {
-  id: number;
-  storeName: string;
-  phoneNumber: string;
-  location: string;
-  isActive: boolean;
-}
-
-export interface UserActionResponse {
-  message: string;
-}
-
-export interface RepresentativesResponseEnvelope {
-  statusCode: number;
-  success: boolean;
-  data: Representative[];
-  errors: string[] | null;
-}
-
-export interface UserActionResponseEnvelope {
-  statusCode: number;
-  success: boolean;
-  data: UserActionResponse;
-  errors: string[] | null;
-}
-
-export interface UpdateProfileRequest {
-  storeName: string;
-  phoneNumber: string;
-  location: string;
-}
+import { Representative, UserActionResponse, UpdateProfileRequest, ApiResponseEnvelope } from "../types";
 
 export const userService = {
   /**
@@ -38,7 +7,7 @@ export const userService = {
    */
   async updateProfile(data: UpdateProfileRequest): Promise<UserActionResponse> {
     try {
-      const response = await api.patch<UserActionResponseEnvelope>("/Users/profile", {
+      const response = await api.patch<ApiResponseEnvelope<UserActionResponse>>("/Users/profile", {
         storeName: data.storeName.trim(),
         phoneNumber: data.phoneNumber.trim(),
         location: data.location.trim(),
@@ -72,7 +41,7 @@ export const userService = {
    * Retrieves all representatives from the backend
    */
   async getRepresentatives(): Promise<Representative[]> {
-    const response = await api.get<RepresentativesResponseEnvelope>("/Users/representatives");
+    const response = await api.get<ApiResponseEnvelope<Representative[]>>("/Users/representatives");
     const responseData = response.data;
     if (responseData.success && responseData.data) {
       return responseData.data;
@@ -89,7 +58,7 @@ export const userService = {
    * Approves/activates a representative
    */
   async approveUser(id: number | string): Promise<UserActionResponse> {
-    const response = await api.post<UserActionResponseEnvelope>(`/Users/${id}/approve`);
+    const response = await api.post<ApiResponseEnvelope<UserActionResponse>>(`/Users/${id}/approve`);
     const responseData = response.data;
     if (responseData.success && responseData.data) {
       return responseData.data;
@@ -106,7 +75,7 @@ export const userService = {
    * Suspends/deactivates a representative
    */
   async suspendUser(id: number | string): Promise<UserActionResponse> {
-    const response = await api.post<UserActionResponseEnvelope>(`/Users/${id}/suspend`);
+    const response = await api.post<ApiResponseEnvelope<UserActionResponse>>(`/Users/${id}/suspend`);
     const responseData = response.data;
     if (responseData.success && responseData.data) {
       return responseData.data;
@@ -119,4 +88,3 @@ export const userService = {
     }
   },
 };
-

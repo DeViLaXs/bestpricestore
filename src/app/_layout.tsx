@@ -1,6 +1,7 @@
 import type { JSX } from "react";
 import { useEffect, useState } from "react";
-import { Stack, router } from "expo-router";
+import { Stack, router, usePathname } from "expo-router";
+import { Alert } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { HeroUINativeProvider } from "heroui-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -9,9 +10,11 @@ import * as SplashScreen from "expo-splash-screen";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useAuthStore } from "../store/authStore";
 import CustomSplashScreen from "../components/CustomSplashScreen";
-import { checkIsAdmin } from "../hooks/useAuth";
+import { getUserRole } from "../hooks/useAuth";
+import { AlertProvider } from "../contexts/AlertContext";
 
 import "../global.css";
+
 
 // Prevent the native splash screen from auto-hiding before asset loading is complete
 SplashScreen.preventAutoHideAsync().catch((err) => {
@@ -30,6 +33,9 @@ export default function RootLayout(): JSX.Element {
   const [isAssetsReady, setIsAssetsReady] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const hydrated = useAuthStore((state) => state.hydrated);
+  const token = useAuthStore((state) => state.token);
+  const user = useAuthStore((state) => state.user);
+  const pathname = usePathname();
 
   useEffect(() => {
     async function prepareApp() {
@@ -50,54 +56,75 @@ export default function RootLayout(): JSX.Element {
   const isAppReady = isAssetsReady && hydrated;
 
   useEffect(() => {
-    if (isAppReady) {
-      // Auto-login redirection based on persisted state immediately when app is ready
-      // This loads the correct screen under the splash screen.
-      const { token, user } = useAuthStore.getState();
-      if (token && user) {
-        if (checkIsAdmin(user)) {
-          router.replace("/admin/representatives");
-        } else if (user.isActive) {
-          router.replace("/" as any);
-        } else {
-          router.replace("/pending");
-        }
-      } else {
+    if (!isAppReady) return;
+
+    const role = getUserRole(user);
+    const isAdminRoute = pathname.startsWith("/admin");
+    const isAuthRoute = pathname === "/login" || pathname === "/register";
+    const isPendingRoute = pathname === "/pending";
+
+    if (!token || !user) {
+      if (!isAuthRoute) {
         router.replace("/login");
       }
+      return;
     }
-  }, [isAppReady]);
 
+    if (role === "admin") {
+      if (!isAdminRoute) {
+        router.replace("/admin/dashboard");
+      }
+      return;
+    }
+
+    if (role === "representative") {
+      const representativeRoute = user.isActive ? ("/" as any) : "/pending";
+
+      if (isAdminRoute || isAuthRoute || (!user.isActive && !isPendingRoute)) {
+        if (isAdminRoute) {
+          Alert.alert("تنبيه", "عذراً، هذه الصفحة مخصصة للمسؤولين فقط.");
+        }
+        router.replace(representativeRoute);
+      }
+      return;
+    }
+
+    router.replace("/login");
+  }, [isAppReady, pathname, token, user]);
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <HeroUINativeProvider config={heroUIConfig}>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="login" />
-              <Stack.Screen name="register" />
-              <Stack.Screen name="pending" />
-              <Stack.Screen name="admin/representatives" />
-              <Stack.Screen name="admin/categories" />
-              <Stack.Screen name="admin/add-product" />
-              <Stack.Screen name="admin/profile" />
-              <Stack.Screen name="admin/orders" />
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="product-details" />
-            </Stack>
-            <StatusBar style="auto" />
+            <AlertProvider>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="login" />
+                <Stack.Screen name="register" />
+                <Stack.Screen name="pending" />
+                <Stack.Screen name="admin/(tabs)" />
+                <Stack.Screen name="admin/categories" />
+                <Stack.Screen name="admin/add-product" />
+                <Stack.Screen name="admin/edit-product" />
+                <Stack.Screen name="admin/profile" />
+                <Stack.Screen name="admin/representatives" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="product-details" />
+              </Stack>
+              <StatusBar style="auto" />
 
-            {showSplash && (
-              <CustomSplashScreen
-                isReady={isAppReady}
-                onAnimationComplete={() => {
-                  setShowSplash(false);
-                }}
-              />
-            )}
+              {showSplash && (
+                <CustomSplashScreen
+                  isReady={isAppReady}
+                  onAnimationComplete={() => {
+                    setShowSplash(false);
+                  }}
+                />
+              )}
+            </AlertProvider>
           </HeroUINativeProvider>
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
+

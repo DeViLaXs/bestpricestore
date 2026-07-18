@@ -1,52 +1,68 @@
 import { api, setAuthToken } from "../api/api";
+import { RegisterRequest, LoginRequest, AuthResponse } from "../types";
 
-export interface RegisterRequest {
-  storeName: string;
-  phone: string;
-  password?: string;
-  confirmPassword?: string;
-  location?: string;
-}
-
-export interface AuthResponse {
-  user: {
-    id: string;
-    fullName: string;
-    phone: string;
-    location?: string;
-    isActive: boolean;
-    role?: string;
-  };
-  token: string;
-}
-
-export interface LoginRequest {
-  phone: string;
-  password?: string;
-}
-
-export interface ApiResponseEnvelope {
+export interface AuthResponseEnvelope {
   statusCode: number;
   success: boolean;
   data: {
     id?: number | string;
-    token: string;
-    storeName: string;
-    phoneNumber: string;
+    Id?: number | string;
+    token?: string;
+    Token?: string;
+    storeName?: string;
+    StoreName?: string;
+    phoneNumber?: string;
+    PhoneNumber?: string;
     location?: string;
+    Location?: string;
     isActive?: boolean;
-    role?: string;
+    IsActive?: boolean;
+    role?: string | string[];
+    Role?: string | string[];
+    roles?: string[];
+    Roles?: string[];
   } | null;
   errors: string[] | null;
 }
 
+const normalizeRole = (role?: string | string[] | null): string => {
+  if (Array.isArray(role)) {
+    return role.join(",");
+  }
+  return role || "";
+};
+
+const mapAuthUser = (data: NonNullable<AuthResponseEnvelope["data"]>): AuthResponse => {
+  const token = data.token || data.Token || "";
+  const storeName = data.storeName || data.StoreName || "";
+  const phoneNumber = data.phoneNumber || data.PhoneNumber || "";
+  const location = data.location || data.Location || "";
+  const isActive = data.isActive ?? data.IsActive ?? false;
+  const role = normalizeRole(data.role || data.Role || data.roles || data.Roles);
+
+  if (token) {
+    setAuthToken(token);
+  }
+
+  return {
+    user: {
+      id: String(data.id || data.Id || storeName || phoneNumber),
+      fullName: storeName,
+      phone: phoneNumber,
+      location,
+      isActive,
+      role,
+    },
+    token,
+  };
+};
 export const authService = {
   /**
    * Registers a new user with full name, phone number, and password.
    */
   async register(data: RegisterRequest): Promise<AuthResponse> {
     try {
-      const response = await api.post<ApiResponseEnvelope>("/Auth/Register", {
+      const response = await api.post<AuthResponseEnvelope>("/Auth/Register", {
         StoreName: data.storeName.trim(),
         PhoneNumber: data.phone,
         Password: data.password,
@@ -56,22 +72,7 @@ export const authService = {
 
       const responseData = response.data;
       if (responseData.success && responseData.data) {
-        const { token, storeName, phoneNumber, location, isActive, role } = responseData.data;
-        if (token) {
-          setAuthToken(token);
-        }
-
-        return {
-          user: {
-            id: String(responseData.data.id || storeName),
-            fullName: storeName,
-            phone: phoneNumber,
-            location: location || "",
-            isActive: isActive ?? false,
-            role: role || "",
-          },
-          token: token,
-        };
+        return mapAuthUser(responseData.data);
       } else {
         throw new Error(
           responseData.errors && responseData.errors.length > 0
@@ -109,29 +110,14 @@ export const authService = {
    */
   async login(data: LoginRequest): Promise<AuthResponse> {
     try {
-      const response = await api.post<ApiResponseEnvelope>("/Auth/Login", {
+      const response = await api.post<AuthResponseEnvelope>("/Auth/Login", {
         PhoneNumber: data.phone,
         Password: data.password,
       });
 
       const responseData = response.data;
       if (responseData.success && responseData.data) {
-        const { token, storeName, phoneNumber, location, isActive, role } = responseData.data;
-        if (token) {
-          setAuthToken(token);
-        }
-
-        return {
-          user: {
-            id: String(responseData.data.id || storeName),
-            fullName: storeName,
-            phone: phoneNumber,
-            location: location || "",
-            isActive: isActive ?? false,
-            role: role || "",
-          },
-          token: token,
-        };
+        return mapAuthUser(responseData.data);
       } else {
         throw new Error(
           responseData.errors && responseData.errors.length > 0
@@ -174,18 +160,10 @@ export const authService = {
    */
   async me(): Promise<AuthResponse["user"]> {
     try {
-      const response = await api.get<ApiResponseEnvelope>("/Auth/Me");
+      const response = await api.get<AuthResponseEnvelope>("/Auth/Me");
       const responseData = response.data;
       if (responseData.success && responseData.data) {
-        const { storeName, phoneNumber, location, isActive, role } = responseData.data;
-        return {
-          id: String(responseData.data.id || storeName),
-          fullName: storeName,
-          phone: phoneNumber,
-          location: location || "",
-          isActive: isActive ?? false,
-          role: role || "",
-        };
+        return mapAuthUser(responseData.data).user;
       } else {
         throw new Error(
           responseData.errors && responseData.errors.length > 0

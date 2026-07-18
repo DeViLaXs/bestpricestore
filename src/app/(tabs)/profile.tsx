@@ -60,45 +60,42 @@ export default function MoreScreen(): JSX.Element {
 
   return (
     <View className="flex-1 bg-[#f8fafd]">
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
-      {/* Decorative Blue Top Background Block */}
-      <View className="bg-[#0c3f7c] h-56 w-full absolute top-0 left-0 right-0" />
+      {/* Clean White Header Banner */}
+      <View className="bg-white border-b border-gray-100/50" style={{ paddingTop: safeTop }}>
+        <View className="flex-row-reverse items-center px-6 py-2.5">
+          <Text className="text-lg font-bold text-gray-900 text-right">الملف الشخصي</Text>
+        </View>
+      </View>
 
       <ScrollView
         contentContainerStyle={{
-          paddingTop: safeTop + 8,
-          paddingBottom: 110, // Avoid overlapping floating cart/tabbar
+          paddingBottom: 110,
+          paddingTop: 24,
         }}
         showsVerticalScrollIndicator={false}
         className="flex-1"
       >
-        {/* Screen Title Header */}
-        <View className="h-16 justify-center items-center mb-6">
-          <Text className="text-white text-xl font-extrabold tracking-tight text-center">
-            الملف الشخصي
-          </Text>
-        </View>
-
         {/* Profile Card Section */}
-        <View className="bg-white rounded-3xl mx-5 p-5 shadow-md border border-gray-50 items-center relative mt-8 mb-6 pt-16">
-          {/* Styled Avatar centered and absolute positioned overlapping the card top */}
-          <View className="w-28 h-28 bg-[#edf3fa] rounded-full items-center justify-center border-4 border-white absolute -top-14 shadow-lg">
-            <Text className="text-[#0c3f7c] font-black text-3xl">
+        <View className="bg-white rounded-3xl mx-5 shadow-sm border border-gray-100 items-center pt-10 pb-5 px-5 mb-5">
+          {/* Avatar */}
+          <View className="w-20 h-20 bg-[#edf3fa] rounded-full items-center justify-center border-2 border-[#0F4C92]/20 mb-3">
+            <Text className="text-[#0F4C92] font-black text-2xl">
               {getInitials(user?.fullName || "")}
             </Text>
           </View>
 
-          {/* Profile Details */}
-          <Text className="font-extrabold text-gray-900 text-xl text-center mt-2">
+          {/* Name and role */}
+          <Text className="font-extrabold text-gray-900 text-lg text-center">
             {user?.fullName || "مندوب"}
           </Text>
-          <Text className="text-gray-400 text-xs font-semibold mt-1 text-center">
+          <Text className="text-gray-400 text-xs font-semibold mt-0.5 text-center">
             مندوب متجر
           </Text>
 
           {/* Contact Details Pill */}
-          <View className="flex-row items-center justify-center gap-1.5 mt-3.5 bg-gray-50 px-3.5 py-1.5 rounded-full border border-gray-100">
+          <View className="flex-row items-center justify-center gap-1.5 mt-4 bg-gray-50 px-3.5 py-1.5 rounded-full border border-gray-100">
             <MapPin size={13} color="#718096" />
             <Text className="text-gray-500 text-xs font-semibold">
               {user?.location || "لم يتم تحديد الموقع"}
@@ -111,40 +108,25 @@ export default function MoreScreen(): JSX.Element {
           </View>
         </View>
 
-        {/* Menu Items Container Card */}
-        <View className="bg-white rounded-3xl mx-5 shadow-md border border-gray-50 mb-6 overflow-hidden">
-          <Text className="text-right text-base font-black text-gray-900 px-5 pt-5 pb-2">
+        {/* Account Settings Card */}
+        <View className="bg-white rounded-3xl mx-5 shadow-sm border border-gray-100 mb-6 overflow-hidden">
+          <Text className="text-right text-sm font-black text-gray-400 px-5 pt-4 pb-1">
             إعدادات الحساب
           </Text>
 
-          {/* My Orders Action Section */}
-          <TouchableOpacity
-            onPress={() => router.push("/orders")}
-            className="flex-row-reverse items-center justify-between p-4 border-b border-gray-100 active:bg-blue-50"
-            activeOpacity={0.7}
-          >
-            <View className="flex-row-reverse items-center">
-              <View className="w-9 h-9 rounded-2xl bg-blue-50 items-center justify-center">
-                <Package size={18} color="#0c3f7c" />
-              </View>
-              <Text className="font-bold text-gray-800 text-sm text-right mr-3">
-                طلباتي
-              </Text>
-            </View>
-            <ChevronLeft size={18} color="#a0aec0" />
-          </TouchableOpacity>
+          
 
-          {/* Logout Action Section */}
+          {/* Logout */}
           <TouchableOpacity
             onPress={handleLogout}
-            className="flex-row-reverse items-center justify-between p-4 active:bg-red-50"
+            className="flex-row-reverse items-center justify-between px-5 py-3.5 active:bg-red-50/50"
             activeOpacity={0.7}
           >
-            <View className="flex-row-reverse items-center">
+            <View className="flex-row-reverse items-center gap-3">
               <View className="w-9 h-9 rounded-2xl bg-red-50 items-center justify-center">
                 <LogOut size={18} color="#e53e3e" />
               </View>
-              <Text className="font-bold text-[#e53e3e] text-sm text-right mr-3">
+              <Text className="font-bold text-rose-600 text-sm text-right">
                 تسجيل الخروج
               </Text>
             </View>

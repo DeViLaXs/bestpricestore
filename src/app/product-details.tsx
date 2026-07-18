@@ -254,7 +254,7 @@ export default function ProductDetailsScreen(): JSX.Element {
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => refetch()}
-            className="bg-[#0c3f7c] px-6 py-3.5 rounded-2xl active:opacity-90"
+            className="bg-[#0F4C92] px-6 py-3.5 rounded-2xl active:opacity-90"
           >
             <Text className="text-white font-bold text-sm">إعادة المحاولة</Text>
           </TouchableOpacity>
@@ -363,7 +363,7 @@ export default function ProductDetailsScreen(): JSX.Element {
               </View>
             </View>
             <View className="bg-[#f0f7ff] border border-blue-50 px-4 py-2.5 rounded-2xl">
-              <Text className="text-lg font-black text-[#0c3f7c]">
+              <Text className="text-lg font-black text-[#0F4C92]">
                 {product.price} {getCurrencySymbol(product.currencyId)}
               </Text>
             </View>
@@ -394,7 +394,7 @@ export default function ProductDetailsScreen(): JSX.Element {
                       onPress={() => setSelectedImageUrl(img.imageUrl)}
                       activeOpacity={0.8}
                       className={`w-16 h-16 rounded-full overflow-hidden border-2 p-0.5 justify-center items-center ${
-                        isSelected ? "border-[#0c3f7c] bg-[#f0f7ff]" : "border-slate-200 bg-white"
+                        isSelected ? "border-[#0F4C92] bg-[#f0f7ff]" : "border-slate-200 bg-white"
                       }`}
                     >
                       <Image
@@ -465,7 +465,7 @@ export default function ProductDetailsScreen(): JSX.Element {
                       >
                         {item.name}
                       </Text>
-                      <Text className="font-black text-[#0c3f7c] text-xs mt-1 text-center">
+                      <Text className="font-black text-[#0F4C92] text-xs mt-1 text-center">
                         {item.price} {getCurrencySymbol(item.currencyId)}
                       </Text>
                     </TouchableOpacity>
@@ -495,7 +495,7 @@ export default function ProductDetailsScreen(): JSX.Element {
             <TouchableOpacity
               onPress={handleAddToCart}
               activeOpacity={0.85}
-              className="flex-1 h-13 bg-[#0c3f7c] rounded-2xl flex-row-reverse items-center justify-center gap-2 shadow-md active:opacity-95"
+              className="flex-1 h-13 bg-[#0F4C92] rounded-2xl flex-row-reverse items-center justify-center gap-2 shadow-md active:opacity-95"
             >
               <StyledSparkles size={16} className="text-white/90" />
               <Text className="text-white font-extrabold text-base text-center">أضف إلى السلة</Text>
@@ -510,7 +510,7 @@ export default function ProductDetailsScreen(): JSX.Element {
                 className={`w-9 h-9 rounded-xl items-center justify-center border ${
                   quantity >= stockAvailable 
                     ? "bg-slate-50 border-slate-300" 
-                    : "bg-[#0c3f7c] border-[#0c3f7c]"
+                    : "bg-[#0F4C92] border-[#0F4C92]"
                 }`}
                 activeOpacity={0.7}
               >
@@ -529,7 +529,7 @@ export default function ProductDetailsScreen(): JSX.Element {
                 className={`w-9 h-9 rounded-xl items-center justify-center border ${
                   quantity <= 1 
                     ? "bg-slate-50 border-slate-300" 
-                    : "bg-[#0c3f7c] border-[#0c3f7c]"
+                    : "bg-[#0F4C92] border-[#0F4C92]"
                 }`}
                 activeOpacity={0.7}
               >

@@ -1,12 +1,13 @@
+import { useCallback } from "react";
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
+import { productService } from "../services/product.service";
 import {
-  productService,
   Currency,
   Product,
   CreateProductRequest,
   UpdateProductRequest,
   BrowseProductsResponse,
-} from "../services/product.service";
+} from "../types";
 
 /**
  * Hook to retrieve the list of currencies.
@@ -127,4 +128,19 @@ export const useDeactivateProductMutation = () => {
       queryClient.invalidateQueries({ queryKey: ["product", id] });
     },
   });
+};
+
+/**
+ * Hook to fetch product details lazily/imperatively in event handlers.
+ */
+export const useGetProductDetails = () => {
+  const queryClient = useQueryClient();
+  return useCallback(
+    (id: number) =>
+      queryClient.fetchQuery<Product, Error>({
+        queryKey: ["product", id],
+        queryFn: () => productService.getProduct(id),
+      }),
+    [queryClient]
+  );
 };

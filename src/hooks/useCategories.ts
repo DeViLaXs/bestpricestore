@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { categoryService, Category } from "../services/category.service";
+import { categoryService } from "../services/category.service";
+import { Category } from "../types";
 
 /**
  * Hook to retrieve the list of categories.

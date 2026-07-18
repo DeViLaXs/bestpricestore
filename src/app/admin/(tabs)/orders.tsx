@@ -10,63 +10,40 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
-  Animated,
-  Pressable,
-  Modal,
   FlatList,
+  Modal,
 } from "react-native";
 import {
-  Menu,
   Search,
   AlertCircle,
-  Users,
-  LogOut,
-  X,
-  ShoppingBag,
-  Settings,
-  Tag,
-  Package,
-  User,
   ClipboardList,
   Calendar,
   Clock,
   CheckCircle2,
   XCircle,
   ChevronLeft,
+  X,
+  Package,
 } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { withUniwind } from "uniwind";
-import { useAuth } from "../../hooks/useAuth";
+import OrderListSkeleton from "../../../components/OrderListSkeleton";
+import OrderDetailSkeleton from "../../../components/OrderDetailSkeleton";
+import { useAuth } from "../../../hooks/useAuth";
 import {
   useAdminOrdersQuery,
   useAdminOrderDetailsQuery,
   useAdminUpdateOrderStatusMutation,
-} from "../../hooks/useAdminOrders";
+} from "../../../hooks/useAdminOrders";
 
 // Wrap Lucide icons with Uniwind for Tailwind CSS layout compatibility
-const StyledMenu = withUniwind(Menu);
 const StyledSearch = withUniwind(Search);
 const StyledX = withUniwind(X);
-const StyledShoppingBag = withUniwind(ShoppingBag);
-const StyledTag = withUniwind(Tag);
-const StyledUsers = withUniwind(Users);
-const StyledSettings = withUniwind(Settings);
-const StyledLogOut = withUniwind(LogOut);
 const StyledPackage = withUniwind(Package);
-const StyledUser = withUniwind(User);
-const StyledClipboardList = withUniwind(ClipboardList);
 
 // Status Badge Styling Maps
-const STATUS_ARABIC_MAP: Record<string, string> = {
-  Pending: "قيد المراجعة",
-  Processing: "قيد المعالجة",
-  Shipped: "تم الشحن",
-  Delivered: "تم التوصيل",
-  Cancelled: "ملغى",
-};
-
 const STATUS_STYLE_MAP: Record<
   number,
   { bg: string; text: string; icon: any; name: string }
@@ -80,11 +57,7 @@ const STATUS_STYLE_MAP: Record<
 
 export default function AdminOrdersScreen(): JSX.Element {
   const insets = useSafeAreaInsets();
-  const { user, isAdmin, logoutMutation } = useAuth();
-
-  // Sidebar Drawer States
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [slideAnim] = useState(() => new Animated.Value(-280));
+  const { user, isAdmin } = useAuth();
 
   // Search & Status Filter
   const [searchQuery, setSearchQuery] = useState("");
@@ -107,54 +80,9 @@ export default function AdminOrdersScreen(): JSX.Element {
   // Route guard: only allow admins
   useEffect(() => {
     if (user && !isAdmin) {
-      Alert.alert("تنبيه", "عذراً، هذه الصفحة مخصصة للمسؤولين فقط.");
       router.replace("/" as any);
     }
   }, [user, isAdmin]);
-
-  // Sidebar Controls
-  const toggleSidebar = (open: boolean) => {
-    if (open) {
-      setIsSidebarOpen(true);
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 250,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(slideAnim, {
-        toValue: -280,
-        duration: 220,
-        useNativeDriver: true,
-      }).start(() => {
-        setIsSidebarOpen(false);
-      });
-    }
-  };
-
-  const handleLogout = () => {
-    Alert.alert(
-      "تسجيل الخروج",
-      "هل أنت متأكد من رغبتك في تسجيل الخروج؟",
-      [
-        { text: "إلغاء", style: "cancel" },
-        {
-          text: "خروج",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              toggleSidebar(false);
-              await logoutMutation.mutateAsync();
-              router.replace("/login");
-            } catch (err) {
-              console.log("Logout failed:", err);
-            }
-          },
-        },
-      ],
-      { cancelable: true }
-    );
-  };
 
   // Local Filter & Search logic
   const filteredOrders = useMemo(() => {
@@ -176,6 +104,27 @@ export default function AdminOrdersScreen(): JSX.Element {
     });
   }, [orders, selectedStatusId, searchQuery]);
 
+  // Dynamic order status count computation
+  const counts = useMemo(() => {
+    const list = Array.isArray(orders) ? orders : [];
+    let all = list.length;
+    let pendingReview = 0;
+    let processing = 0;
+    let shipped = 0;
+    let delivered = 0;
+    let cancelled = 0;
+
+    list.forEach((order) => {
+      if (order.orderStatusId === 1) pendingReview++;
+      else if (order.orderStatusId === 2) processing++;
+      else if (order.orderStatusId === 3) shipped++;
+      else if (order.orderStatusId === 4) delivered++;
+      else if (order.orderStatusId === 5) cancelled++;
+    });
+
+    return { all, pendingReview, processing, shipped, delivered, cancelled };
+  }, [orders]);
+
   // Helper status translation
   const getStatusDetails = (statusId: number) => {
     return STATUS_STYLE_MAP[statusId] || STATUS_STYLE_MAP[1];
@@ -187,8 +136,8 @@ export default function AdminOrdersScreen(): JSX.Element {
       const date = new Date(dateStr);
       return date.toLocaleDateString("ar-YE", {
         year: "numeric",
-        month: "long",
-        day: "numeric",
+        month: "2-digit",
+        day: "2-digit",
         hour: "2-digit",
         minute: "2-digit",
         numberingSystem: "latn",
@@ -220,91 +169,89 @@ export default function AdminOrdersScreen(): JSX.Element {
   const safeTop = insets.top > 0 ? insets.top : 47;
 
   return (
-    <View className="flex-1 bg-[#f8fafd]">
-      <StatusBar style="light" />
+    <View className="flex-1 bg-white">
+      <StatusBar style="dark" />
 
-      {/* Blue Header Banner */}
-      <View className="bg-[#0F4C92] pb-11" style={{ paddingTop: safeTop }}>
-        <View className="flex-row-reverse items-center justify-between px-6 py-3">
-          {/* Title on Right */}
-          <Text className="text-xl font-bold text-white text-right">إدارة الطلبات</Text>
-
-          {/* Hamburger Menu on Left */}
-          <TouchableOpacity onPress={() => toggleSidebar(true)} className="p-1" activeOpacity={0.7}>
-            <StyledMenu size={28} className="text-white" />
-          </TouchableOpacity>
+      {/* Clean White Header Banner */}
+      <View className="bg-white border-b border-gray-100/50" style={{ paddingTop: safeTop }}>
+        <View className="flex-row-reverse items-center px-6 py-2.5">
+          <Text className="text-lg font-bold text-gray-900 text-right">الطلبات</Text>
         </View>
       </View>
 
-      {/* Content Container */}
-      <View className="flex-1 -mt-6 rounded-t-[28px] bg-[#f8fafd] overflow-hidden">
-        {/* Search Input and Filters Area */}
-        <View className="px-6 pt-6 pb-2">
-          {/* Search bar */}
-          <View className="relative justify-center">
-            <TextInput
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="ابحث عن متجر، رقم طلب، أو مبلغ..."
-              placeholderTextColor="#a0aec0"
-              className="h-12 rounded-2xl border-[1.5px] border-gray-200 bg-white pr-11 pl-4 text-sm text-gray-800 font-semibold text-right"
-            />
-            <StyledSearch size={20} className="text-gray-400 absolute right-4" />
-          </View>
-
-          {/* Scrolling filter tabs */}
-          <View className="mt-4 mb-2">
-            <FlatList
-              data={filterStatuses}
-              horizontal
-              inverted
-              showsHorizontalScrollIndicator={false}
-              style={{ marginHorizontal: -24 }}
-              contentContainerStyle={{
-                gap: 8,
-                paddingHorizontal: 24,
-              }}
-              keyExtractor={(item) => (item.id !== null ? item.id.toString() : "all")}
-              renderItem={({ item: status }) => {
-                const isSelected = selectedStatusId === status.id;
-                return (
-                  <TouchableOpacity
-                    onPress={() => setSelectedStatusId(status.id)}
-                    className={`px-4 py-2 rounded-full border ${
-                      isSelected
-                        ? "bg-[#0c3f7c] border-[#0c3f7c]"
-                        : "bg-white border-gray-200"
-                    }`}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      numberOfLines={1}
-                      className={`text-xs font-black ${
-                        isSelected ? "text-white" : "text-gray-600"
-                      }`}
-                    >
-                      {status.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              }}
-            />
-          </View>
-
-          {/* Total Count Label */}
-          <View className="flex-row justify-end mt-2 px-1">
-            <Text className="text-xs font-bold text-gray-400 text-right">
-              إجمالي الطلبات المطابقة: {filteredOrders.length}
-            </Text>
-          </View>
+      {/* Search Area */}
+      <View className="px-6 pt-3 pb-2 bg-[#f8fafd]">
+        {/* Search bar */}
+        <View className="relative justify-center">
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="ابحث عن متجر، رقم طلب، أو مبلغ..."
+            placeholderTextColor="#a0aec0"
+            className="h-10 rounded-xl border-[1.5px] border-gray-200 bg-white pr-11 pl-4 text-xs text-gray-800 font-semibold text-right"
+          />
+          <StyledSearch size={18} className="text-gray-400 absolute right-4" />
         </View>
+      </View>
 
-        {/* Orders List */}
+      {/* Status Filter Tabs */}
+      <View className="border-b border-gray-100 bg-[#f8fafd]">
+        <FlatList
+          data={filterStatuses}
+          horizontal
+          inverted
+          showsHorizontalScrollIndicator={false}
+          className="h-11"
+          contentContainerStyle={{
+            alignItems: "center",
+            paddingHorizontal: 10,
+          }}
+          keyExtractor={(item) => (item.id !== null ? item.id.toString() : "all")}
+          renderItem={({ item: status }) => {
+            const isSelected = selectedStatusId === status.id;
+            const count =
+              status.id === null
+                ? counts.all
+                : status.id === 1
+                  ? counts.pendingReview
+                  : status.id === 2
+                    ? counts.processing
+                    : status.id === 3
+                      ? counts.shipped
+                      : status.id === 4
+                        ? counts.delivered
+                        : counts.cancelled;
+
+            return (
+              <TouchableOpacity
+                onPress={() => setSelectedStatusId(status.id)}
+                activeOpacity={0.7}
+                className="px-3.5 h-full justify-center"
+              >
+                <View className="items-center">
+                  <Text
+                    className={`text-xs font-bold ${
+                      isSelected ? "text-[#0F4C92]" : "text-gray-500"
+                    }`}
+                  >
+                    {status.name} ({count})
+                  </Text>
+                  <View
+                    className={`h-[2.5px] w-full bg-[#0F4C92] rounded-t-full mt-1.5 ${
+                      isSelected ? "opacity-100" : "opacity-0"
+                    }`}
+                  />
+                </View>
+              </TouchableOpacity>
+            );
+          }}
+        />
+      </View>
+
+      {/* Orders List Container */}
+      <View className="flex-1 bg-[#f8fafd] pt-2.5">
         {isLoading && !isRefetching ? (
-          <View className="flex-1 items-center justify-center">
-            <ActivityIndicator size="large" color="#0F4C92" />
-            <Text className="text-gray-500 font-semibold mt-4">جاري تحميل الطلبات...</Text>
-          </View>
+          <OrderListSkeleton bottomPadding={insets.bottom + 90} />
         ) : error ? (
           <ScrollView
             contentContainerStyle={{ flexGrow: 1, justifyContent: "center", alignItems: "center" }}
@@ -338,9 +285,9 @@ export default function AdminOrdersScreen(): JSX.Element {
             keyExtractor={(item) => item.id.toString()}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{
-              paddingHorizontal: 24,
-              paddingTop: 8,
-              paddingBottom: insets.bottom + 40,
+              paddingHorizontal: 16,
+              paddingTop: 12,
+              paddingBottom: insets.bottom + 90, // extra padding for bottom tabs
             }}
             refreshing={isRefetching}
             onRefresh={refetch}
@@ -352,31 +299,31 @@ export default function AdminOrdersScreen(): JSX.Element {
                 <TouchableOpacity
                   onPress={() => handleOpenDetails(item.id)}
                   activeOpacity={0.8}
-                  className="bg-white rounded-3xl p-4 mb-4 border border-gray-100 shadow-sm flex-row-reverse items-center justify-between"
+                  className="bg-white rounded-2xl p-3.5 mb-3 border border-gray-100 shadow-sm flex-row-reverse items-center justify-between"
                 >
                   <View className="flex-1 items-end pl-2">
                     {/* ID and Status Badge */}
-                    <View className="flex-row-reverse items-center gap-2 mb-1.5 flex-wrap">
-                      <Text className="font-extrabold text-gray-900 text-base">
+                    <View className="flex-row-reverse items-center gap-2 mb-1 flex-wrap">
+                      <Text className="font-extrabold text-gray-900 text-sm">
                         طلب #{item.id}
                       </Text>
-                      <View className={`px-2.5 py-0.5 rounded-full border ${statusInfo.bg} flex-row-reverse items-center gap-1`}>
-                        <StatusIcon size={12} className={statusInfo.text} />
-                        <Text numberOfLines={1} className={`text-[10px] font-black ${statusInfo.text}`}>
+                      <View className={`px-2 py-0.5 rounded-full border ${statusInfo.bg} flex-row-reverse items-center gap-1`}>
+                        <StatusIcon size={10} className={statusInfo.text} />
+                        <Text numberOfLines={1} className={`text-[9px] font-bold ${statusInfo.text}`}>
                           {statusInfo.name}
                         </Text>
                       </View>
                     </View>
 
                     {/* Customer Store Name */}
-                    <Text className="text-gray-800 font-bold text-xs text-right mb-1">
+                    <Text className="text-gray-800 font-bold text-xs text-right mb-0.5">
                       العميل: {item.storeName || `مستخدم #${item.userId}`}
                     </Text>
 
                     {/* Date */}
-                    <View className="flex-row-reverse items-center gap-1.5 mb-2.5">
-                      <Calendar size={13} color="#718096" />
-                      <Text className="text-gray-500 text-[11px] font-semibold">
+                    <View className="flex-row-reverse items-center gap-1.5 mb-1.5">
+                      <Calendar size={11} color="#718096" />
+                      <Text className="text-gray-500 text-[10px] font-bold">
                         {formatDate(item.createdAt)}
                       </Text>
                     </View>
@@ -385,14 +332,14 @@ export default function AdminOrdersScreen(): JSX.Element {
                     <View className="flex-row-reverse items-center gap-3">
                       {item.totalAmountYer > 0 && (
                         <View className="bg-blue-50/50 px-2 py-0.5 rounded-md border border-blue-100/50">
-                          <Text className="text-[#0c3f7c] text-[11px] font-extrabold">
+                          <Text className="text-[#0F4C92] text-[10px] font-extrabold">
                             {item.totalAmountYer.toLocaleString("en-US")} ريال يمني
                           </Text>
                         </View>
                       )}
                       {item.totalAmountSar > 0 && (
                         <View className="bg-emerald-50/50 px-2 py-0.5 rounded-md border border-emerald-100/50">
-                          <Text className="text-emerald-700 text-[11px] font-extrabold">
+                          <Text className="text-emerald-700 text-[10px] font-extrabold">
                             {item.totalAmountSar.toLocaleString("en-US")} ريال سعودي
                           </Text>
                         </View>
@@ -400,7 +347,7 @@ export default function AdminOrdersScreen(): JSX.Element {
                     </View>
                   </View>
 
-                  <ChevronLeft size={18} color="#a0aec0" />
+                  <ChevronLeft size={16} color="#a0aec0" />
                 </TouchableOpacity>
               );
             }}
@@ -418,155 +365,6 @@ export default function AdminOrdersScreen(): JSX.Element {
           formatDate={formatDate}
           updateMutation={updateStatusMutation}
         />
-      )}
-
-      {/* Sidebar Drawer Drawer */}
-      {isSidebarOpen && (
-        <View className="absolute inset-0 z-50 flex-row">
-          <Pressable
-            className="absolute inset-0 bg-black/40"
-            onPress={() => toggleSidebar(false)}
-          />
-
-          <Animated.View
-            style={[
-              {
-                width: 280,
-                height: "100%",
-                backgroundColor: "#ffffff",
-                paddingTop: insets.top,
-                paddingBottom: Math.max(insets.bottom, 20),
-                transform: [{ translateX: slideAnim }],
-                shadowColor: "#000",
-                shadowOffset: { width: 4, height: 0 },
-                shadowOpacity: 0.1,
-                shadowRadius: 10,
-                elevation: 8,
-              },
-            ]}
-            className="flex-col justify-between"
-          >
-            {/* Top Section: Header & Menu Items */}
-            <View className="flex-1">
-              <View className="flex-row-reverse items-center justify-between px-5 py-4 border-b border-gray-100">
-                <View className="items-end">
-                  <Text className="font-extrabold text-[#0c3f7c] text-base text-right">
-                    لوحة التحكم
-                  </Text>
-                  <Text className="text-gray-400 text-[10px] font-semibold text-right">
-                    {user?.fullName || "المسؤول"}
-                  </Text>
-                </View>
-                <TouchableOpacity onPress={() => toggleSidebar(false)} className="p-1">
-                  <StyledX size={20} className="text-gray-400" />
-                </TouchableOpacity>
-              </View>
-
-              {/* Sidebar links list */}
-              <View className="p-4 gap-2">
-                {/* 1. Profile */}
-                <TouchableOpacity
-                  onPress={() => {
-                    toggleSidebar(false);
-                    router.push("/admin/profile");
-                  }}
-                  className="flex-row-reverse items-center gap-3 p-3.5 rounded-2xl active:bg-gray-50"
-                  activeOpacity={0.7}
-                >
-                  <StyledUser size={18} className="text-gray-500" />
-                  <Text className="font-bold text-gray-600 text-sm text-right">الملف الشخصي</Text>
-                </TouchableOpacity>
-
-                {/* 2. Representatives */}
-                <TouchableOpacity
-                  onPress={() => {
-                    toggleSidebar(false);
-                    router.replace("/admin/representatives" as any);
-                  }}
-                  className="flex-row-reverse items-center gap-3 p-3.5 rounded-2xl active:bg-gray-50"
-                  activeOpacity={0.7}
-                >
-                  <StyledUsers size={18} className="text-gray-500" />
-                  <Text className="font-bold text-gray-600 text-sm text-right">
-                    إدارة المندوبين
-                  </Text>
-                </TouchableOpacity>
-
-                {/* 3. Admin Orders (Active Link) */}
-                <TouchableOpacity
-                  className="flex-row-reverse items-center gap-3 bg-blue-50/70 p-3.5 rounded-2xl"
-                  activeOpacity={0.9}
-                >
-                  <StyledClipboardList size={18} className="text-[#0c3f7c]" />
-                  <Text className="font-extrabold text-[#0c3f7c] text-sm text-right">
-                    إدارة الطلبات
-                  </Text>
-                </TouchableOpacity>
-
-                {/* 4. Categories */}
-                <TouchableOpacity
-                  onPress={() => {
-                    toggleSidebar(false);
-                    router.replace("/admin/categories" as any);
-                  }}
-                  className="flex-row-reverse items-center gap-3 p-3.5 rounded-2xl active:bg-gray-50"
-                  activeOpacity={0.7}
-                >
-                  <StyledTag size={18} className="text-gray-500" />
-                  <Text className="font-bold text-gray-600 text-sm text-right">إدارة الفئات</Text>
-                </TouchableOpacity>
-
-                {/* 5. Products */}
-                <TouchableOpacity
-                  onPress={() => {
-                    toggleSidebar(false);
-                    router.replace("/admin/products" as any);
-                  }}
-                  className="flex-row-reverse items-center gap-3 p-3.5 rounded-2xl active:bg-gray-50"
-                  activeOpacity={0.7}
-                >
-                  <StyledPackage size={18} className="text-gray-500" />
-                  <Text className="font-bold text-gray-600 text-sm text-right">إدارة المنتجات</Text>
-                </TouchableOpacity>
-
-                {/* 6. Add Product */}
-                <TouchableOpacity
-                  onPress={() => {
-                    toggleSidebar(false);
-                    router.replace("/admin/add-product" as any);
-                  }}
-                  className="flex-row-reverse items-center gap-3 p-3.5 rounded-2xl active:bg-gray-50"
-                  activeOpacity={0.7}
-                >
-                  <StyledShoppingBag size={18} className="text-gray-500" />
-                  <Text className="font-bold text-gray-600 text-sm text-right">إضافة منتج</Text>
-                </TouchableOpacity>
-
-                {/* 7. System settings */}
-                <TouchableOpacity
-                  onPress={() => Alert.alert("قريباً", "سيتم إضافة صفحة إعدادات النظام قريباً.")}
-                  className="flex-row-reverse items-center gap-3 p-3.5 rounded-2xl active:bg-gray-50"
-                  activeOpacity={0.7}
-                >
-                  <StyledSettings size={18} className="text-gray-500" />
-                  <Text className="font-bold text-gray-600 text-sm text-right">إعدادات النظام</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Logout button bottom */}
-            <View className="px-4 pt-4 border-t border-gray-100">
-              <TouchableOpacity
-                onPress={handleLogout}
-                className="flex-row-reverse items-center justify-center gap-2 bg-red-50 p-3.5 rounded-2xl active:bg-red-100"
-                activeOpacity={0.7}
-              >
-                <StyledLogOut size={18} className="text-red-500" />
-                <Text className="font-bold text-danger text-sm text-center">تسجيل الخروج</Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-        </View>
       )}
     </View>
   );
@@ -643,7 +441,7 @@ function AdminOrderDetailsModal({
       animationType="slide"
       transparent={true}
       onRequestClose={onClose}
-    >
+    > 
       <View className="flex-1 bg-black/50 justify-end">
         <View className="bg-white rounded-t-[32px] h-[85%] relative overflow-hidden flex-col">
           {/* Header */}
@@ -658,10 +456,7 @@ function AdminOrderDetailsModal({
           </View>
 
           {isLoading ? (
-            <View className="flex-1 items-center justify-center">
-              <ActivityIndicator size="large" color="#0c3f7c" />
-              <Text className="text-gray-500 font-semibold mt-4">جاري تحميل تفاصيل الطلب...</Text>
-            </View>
+            <OrderDetailSkeleton showTimeline={true} />
           ) : error ? (
             <View className="flex-1 items-center justify-center p-6">
               <AlertCircle size={40} color="#e53e3e" />
@@ -673,7 +468,7 @@ function AdminOrderDetailsModal({
               </Text>
               <TouchableOpacity
                 onPress={onClose}
-                className="bg-[#0c3f7c] px-6 py-2 rounded-full mt-5"
+                className="bg-[#0F4C92] px-6 py-2 rounded-full mt-5"
               >
                 <Text className="text-white font-bold">إغلاق</Text>
               </TouchableOpacity>
@@ -713,7 +508,7 @@ function AdminOrderDetailsModal({
                 </Text>
                 <View className="flex-row-reverse items-center justify-between bg-gray-50/50 p-4 border border-gray-100 rounded-2xl mb-6">
                   {/* Step 1: Pending */}
-                  <View className="items-center flex-1">
+                  <View className="items-center flex">
                     <View className={`w-8 h-8 rounded-full items-center justify-center ${
                       currentStatusId >= 1 ? "bg-amber-500 text-white" : "bg-gray-200"
                     }`}>
@@ -734,7 +529,7 @@ function AdminOrderDetailsModal({
                   <View className={`h-0.5 flex-1 ${currentStatusId >= 2 && currentStatusId !== 5 ? "bg-blue-500" : "bg-gray-200"}`} />
 
                   {/* Step 2: Processing */}
-                  <View className="items-center flex-1">
+                  <View className="items-center flex">
                     <View className={`w-8 h-8 rounded-full items-center justify-center ${
                       currentStatusId >= 2 && currentStatusId !== 5 ? "bg-blue-500 text-white" : "bg-gray-200"
                     }`}>
@@ -755,7 +550,7 @@ function AdminOrderDetailsModal({
                   <View className={`h-0.5 flex-1 ${currentStatusId >= 3 && currentStatusId !== 5 ? "bg-indigo-500" : "bg-gray-200"}`} />
 
                   {/* Step 3: Shipped */}
-                  <View className="items-center flex-1">
+                  <View className="items-center flex">
                     <View className={`w-8 h-8 rounded-full items-center justify-center ${
                       currentStatusId >= 3 && currentStatusId !== 5 ? "bg-indigo-500 text-white" : "bg-gray-200"
                     }`}>
@@ -778,7 +573,7 @@ function AdminOrderDetailsModal({
                   }`} />
 
                   {/* Step 4: Final State (Delivered / Cancelled) */}
-                  <View className="items-center flex-1">
+                  <View className="items-center flex">
                     {currentStatusId === 5 ? (
                       <>
                         <View className="w-8 h-8 rounded-full items-center justify-center bg-rose-500">
@@ -838,7 +633,7 @@ function AdminOrderDetailsModal({
                       <Text className="text-gray-400 text-[10px] font-semibold mt-0.5">
                         الكمية المطلوبة: {item.quantity}
                       </Text>
-                      <Text className="text-[#0c3f7c] text-xs font-extrabold mt-1">
+                      <Text className="text-[#0F4C92] text-xs font-extrabold mt-1">
                         {item.unitPrice.toLocaleString("en-US")} {item.currencyId === 1 ? "ريال يمني" : "ريال سعودي"}
                       </Text>
                     </View>
@@ -904,7 +699,7 @@ function AdminOrderDetailsModal({
                   <TouchableOpacity
                     onPress={() => handleUpdateStatus(primaryAction!.id, primaryAction!.label)}
                     disabled={updateMutation.isPending}
-                    className="flex-1 bg-[#0c3f7c] rounded-full h-12 items-center justify-center shadow-sm active:opacity-90 disabled:opacity-50"
+                    className="flex-1 bg-[#0F4C92] rounded-full h-12 items-center justify-center shadow-sm active:opacity-90 disabled:opacity-50"
                   >
                     {updateMutation.isPending ? (
                       <ActivityIndicator size="small" color="#ffffff" />
@@ -920,7 +715,6 @@ function AdminOrderDetailsModal({
                     </Text>
                   </View>
                 )}
-
               </View>
             </>
           ) : null}

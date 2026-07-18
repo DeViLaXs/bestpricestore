@@ -1,10 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  orderService,
-  OrderStatus,
-  OrderSummary,
-  OrderResponseData,
-} from "../services/order.service";
+import { orderService } from "../services/order.service";
+import { OrderStatus, OrderSummary, OrderResponseData, CreateOrderRequest } from "../types";
 
 /**
  * Hook to retrieve all order status definitions.
@@ -50,6 +46,20 @@ export const useCancelOrderMutation = () => {
       // Invalidate the orders list and this specific order's details
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: ["order", id] });
+    },
+  });
+};
+
+/**
+ * Hook to place a new order.
+ */
+export const usePlaceOrderMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<OrderResponseData, Error, CreateOrderRequest>({
+    mutationFn: (data) => orderService.placeOrder(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
     },
   });
 };

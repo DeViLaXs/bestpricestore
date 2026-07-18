@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -25,6 +25,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import OrderListSkeleton from "../../components/OrderListSkeleton";
+import OrderDetailSkeleton from "../../components/OrderDetailSkeleton";
 import {
   useOrdersQuery,
   useOrderStatusesQuery,
@@ -105,8 +107,8 @@ export default function OrdersScreen(): JSX.Element {
       const date = new Date(dateStr);
       return date.toLocaleDateString("ar-YE", {
         year: "numeric",
-        month: "long",
-        day: "numeric",
+        month: "2-digit",
+        day: "2-digit",
         hour: "2-digit",
         minute: "2-digit",
         numberingSystem: "latn",
@@ -134,82 +136,105 @@ export default function OrdersScreen(): JSX.Element {
   const safeTop = insets.top > 0 ? insets.top : 47;
   const safeBottom = insets.bottom > 0 ? insets.bottom : 20;
 
+  // Dynamic status count computation matching admin
+  const counts = useMemo(() => {
+    const list = Array.isArray(orders) ? orders : [];
+    let all = list.length;
+    let pendingReview = 0;
+    let processing = 0;
+    let shipped = 0;
+    let delivered = 0;
+    let cancelled = 0;
+
+    list.forEach((order) => {
+      if (order.orderStatusId === 1) pendingReview++;
+      else if (order.orderStatusId === 2) processing++;
+      else if (order.orderStatusId === 3) shipped++;
+      else if (order.orderStatusId === 4) delivered++;
+      else if (order.orderStatusId === 5) cancelled++;
+    });
+
+    return { all, pendingReview, processing, shipped, delivered, cancelled };
+  }, [orders]);
+
   return (
-    <View className="flex-1 bg-[#f8fafd]">
-      <StatusBar style="light" />
+    <View className="flex-1 bg-white">
+      <StatusBar style="dark" />
 
-      {/* Blue Top Header Block */}
-      <View 
-        style={{ height: safeTop + 72 }}
-        className="bg-[#0c3f7c] w-full absolute top-0 left-0 right-0"
-      />
+      {/* Clean White Header Banner */}
+      <View className="bg-white border-b border-gray-100/50" style={{ paddingTop: safeTop }}>
+        <View className="flex-row-reverse items-center px-6 py-2.5">
+          <Text className="text-lg font-bold text-gray-900 text-right">طلباتي</Text>
+        </View>
+      </View>
 
-      {/* Header Row */}
-      <View
-        style={{ paddingTop: safeTop, height: safeTop + 60 }}
-        className="flex-row items-center justify-between px-5 z-10"
-      >
-        <View className="w-10" />
-        <Text className="text-white text-lg font-black tracking-tight text-center flex-1">
-          طلباتي
-        </Text>
-        <View className="w-10" />
+      {/* Status Filter Tabs (matching admin tabs layout) */}
+      <View className="border-b border-gray-100 bg-[#f8fafd]">
+        <FlatList
+          data={filterStatuses}
+          horizontal
+          inverted
+          showsHorizontalScrollIndicator={false}
+          className="h-11"
+          contentContainerStyle={{
+            alignItems: "center",
+            paddingHorizontal: 10,
+          }}
+          keyExtractor={(item) => (item.id !== null ? item.id.toString() : "all")}
+          renderItem={({ item: status }) => {
+            const isSelected = selectedStatusId === status.id;
+            const count =
+              status.id === null
+                ? counts.all
+                : status.id === 1
+                  ? counts.pendingReview
+                  : status.id === 2
+                    ? counts.processing
+                    : status.id === 3
+                      ? counts.shipped
+                      : status.id === 4
+                        ? counts.delivered
+                        : counts.cancelled;
+
+            return (
+              <TouchableOpacity
+                onPress={() => setSelectedStatusId(status.id)}
+                activeOpacity={0.7}
+                className="px-3.5 h-full justify-center"
+              >
+                <View className="items-center">
+                  <Text
+                    className={`text-xs font-bold ${
+                      isSelected ? "text-[#0F4C92]" : "text-gray-500"
+                    }`}
+                  >
+                    {status.name} ({count})
+                  </Text>
+                  <View
+                    className={`h-[2.5px] w-full bg-[#0F4C92] rounded-t-full mt-1.5 ${
+                      isSelected ? "opacity-100" : "opacity-0"
+                    }`}
+                  />
+                </View>
+              </TouchableOpacity>
+            );
+          }}
+        />
       </View>
 
       {/* Main Content Area */}
-      <View className="flex-1 px-5 mt-4">
-        {/* Filters Horizontal Scroll Row */}
-        <View className="mb-4">
-          <FlatList
-            data={filterStatuses}
-            horizontal
-            inverted
-            showsHorizontalScrollIndicator={false}
-            style={{ marginHorizontal: -20 }}
-            contentContainerStyle={{
-              gap: 8,
-              paddingHorizontal: 20,
-            }}
-            keyExtractor={(item) => (item.id !== null ? item.id.toString() : "all")}
-            renderItem={({ item: status }) => {
-              const isSelected = selectedStatusId === status.id;
-              return (
-                <TouchableOpacity
-                  onPress={() => setSelectedStatusId(status.id)}
-                  className={`px-4 py-2 rounded-full border ${
-                    isSelected
-                      ? "bg-[#0c3f7c] border-[#0c3f7c]"
-                      : "bg-white border-gray-200"
-                  }`}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    numberOfLines={1}
-                    className={`text-xs font-black ${
-                      isSelected ? "text-white" : "text-gray-600"
-                    }`}
-                  >
-                    {status.name}
-                  </Text>
-                </TouchableOpacity>
-              );
-            }}
-          />
-        </View>
-
+      <View className="flex-1 bg-[#f8fafd] pt-2">
         {isLoadingOrders ? (
-          <View className="flex-1 items-center justify-center">
-            <ActivityIndicator size="large" color="#0c3f7c" />
-            <Text className="text-gray-500 font-semibold mt-4">جاري تحميل الطلبات...</Text>
-          </View>
+          <OrderListSkeleton bottomPadding={safeBottom + 80} />
         ) : (
           <FlatList
             data={filteredOrders}
             keyExtractor={(item) => item.id.toString()}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ 
-              paddingTop: 8, 
-              paddingBottom: safeBottom + 80, // Add spacing for tab navigation
+              paddingTop: 12, 
+              paddingBottom: safeBottom + 80,
+              paddingHorizontal: 16,
               flexGrow: 1,
             }}
             refreshing={isRefreshing}
@@ -226,7 +251,7 @@ export default function OrdersScreen(): JSX.Element {
                   </Text>
                   <TouchableOpacity
                     onPress={() => refetchOrders()}
-                    className="bg-[#0c3f7c] px-6 py-2.5 rounded-full mt-6"
+                    className="bg-[#0F4C92] px-6 py-2.5 rounded-full mt-6"
                   >
                     <Text className="text-white font-bold">إعادة المحاولة</Text>
                   </TouchableOpacity>
@@ -242,7 +267,7 @@ export default function OrdersScreen(): JSX.Element {
                   </Text>
                   <TouchableOpacity
                     onPress={() => router.push("/" as any)}
-                    className="bg-[#0c3f7c] px-8 py-3 rounded-full mt-6 shadow-sm"
+                    className="bg-[#0F4C92] px-8 py-3 rounded-full mt-6 shadow-sm"
                   >
                     <Text className="text-white font-bold">تصفح المنتجات</Text>
                   </TouchableOpacity>
@@ -293,7 +318,7 @@ export default function OrdersScreen(): JSX.Element {
                     <View className="flex-row-reverse items-center gap-3">
                       {item.totalAmountYer > 0 && (
                         <View className="bg-blue-50/50 px-2 py-0.5 rounded-md border border-blue-100/50">
-                          <Text className="text-[#0c3f7c] text-xs font-extrabold">
+                          <Text className="text-[#0F4C92] text-xs font-extrabold">
                             {item.totalAmountYer.toLocaleString("en-US")} ريال يمني
                           </Text>
                         </View>
@@ -402,10 +427,7 @@ function OrderDetailsModal({
           </View>
  
           {isLoading ? (
-            <View className="flex-1 items-center justify-center">
-              <ActivityIndicator size="large" color="#0c3f7c" />
-              <Text className="text-gray-500 font-semibold mt-4">جاري تحميل تفاصيل الطلب...</Text>
-            </View>
+            <OrderDetailSkeleton />
           ) : error ? (
             <View className="flex-1 items-center justify-center p-6">
               <AlertCircle size={40} color="#e53e3e" />
@@ -417,7 +439,7 @@ function OrderDetailsModal({
               </Text>
               <TouchableOpacity
                 onPress={onClose}
-                className="bg-[#0c3f7c] px-6 py-2 rounded-full mt-5"
+                className="bg-[#0F4C92] px-6 py-2 rounded-full mt-5"
               >
                 <Text className="text-white font-bold">إغلاق</Text>
               </TouchableOpacity>
@@ -485,7 +507,7 @@ function OrderDetailsModal({
                       <Text className="text-gray-400 text-[10px] font-semibold mt-0.5">
                         الكمية: {item.quantity}
                       </Text>
-                      <Text className="text-[#0c3f7c] text-xs font-extrabold mt-1">
+                      <Text className="text-[#0F4C92] text-xs font-extrabold mt-1">
                         {item.unitPrice.toLocaleString("en-US")} {item.currencyId === 1 ? "ريال يمني" : "ريال سعودي"}
                       </Text>
                     </View>
@@ -551,12 +573,7 @@ function OrderDetailsModal({
                   </View>
                 )}
  
-                <TouchableOpacity
-                  onPress={onClose}
-                  className="bg-gray-100 rounded-full h-12 px-6 items-center justify-center"
-                >
-                  <Text className="text-gray-700 font-bold text-sm">عودة</Text>
-                </TouchableOpacity>
+                
               </View>
             </>
           ) : null}

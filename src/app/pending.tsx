@@ -37,7 +37,7 @@ export default function PendingScreen(): JSX.Element {
   useEffect(() => {
     if (user) {
       if (isAdmin) {
-        router.replace("/admin/representatives");
+        router.replace("/admin/dashboard");
       } else if (user.isActive) {
         router.replace("/" as any);
       }

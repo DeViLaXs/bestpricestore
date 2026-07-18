@@ -6,26 +6,16 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Image,
   Alert,
   ActivityIndicator,
   RefreshControl,
-  Animated,
-  Pressable,
 } from "react-native";
 import {
-  Menu,
   Search,
   AlertCircle,
   Users,
-  LogOut,
-  X,
-  ShoppingBag,
-  Settings,
-  Tag,
-  Package,
   User,
-  ClipboardList,
+  ArrowLeft,
 } from "lucide-react-native";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -37,65 +27,19 @@ import {
   useApproveRepresentativeMutation,
   useSuspendRepresentativeMutation,
 } from "../../hooks/useRepresentatives";
+import RepresentativeListSkeleton from "../../components/RepresentativeListSkeleton";
 
 export default function RepresentativesScreen(): JSX.Element {
   const insets = useSafeAreaInsets();
-  const { user, isAdmin, logoutMutation } = useAuth();
-
-  // Sidebar States and Animation
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [slideAnim] = useState(() => new Animated.Value(-280));
-
-  const toggleSidebar = (open: boolean) => {
-    if (open) {
-      setIsSidebarOpen(true);
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 250,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(slideAnim, {
-        toValue: -280,
-        duration: 220,
-        useNativeDriver: true,
-      }).start(() => {
-        setIsSidebarOpen(false);
-      });
-    }
-  };
-
-  const handleLogout = () => {
-    Alert.alert(
-      "تسجيل الخروج",
-      "هل أنت متأكد من رغبتك في تسجيل الخروج؟",
-      [
-        { text: "إلغاء", style: "cancel" },
-        {
-          text: "خروج",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              toggleSidebar(false);
-              await logoutMutation.mutateAsync();
-              router.replace("/login");
-            } catch (err) {
-              console.log("Logout failed:", err);
-            }
-          },
-        },
-      ],
-      { cancelable: true }
-    );
-  };
+  const { user, isAdmin } = useAuth();
 
   // Route guard: only allow users with Admin role or credentials
   useEffect(() => {
     if (user && !isAdmin) {
-      Alert.alert("تنبيه", "عذراً، هذه الصفحة مخصصة للمسؤولين فقط.");
       router.replace("/" as any);
     }
   }, [user, isAdmin]);
+  
   const [searchQuery, setSearchQuery] = useState("");
 
   // Query & Mutation hooks
@@ -131,17 +75,6 @@ export default function RepresentativesScreen(): JSX.Element {
     );
   }, [representatives, searchQuery]);
 
-  // Map user ID to a premium realistic male face portrait URL for high-fidelity aesthetics
-  const getAvatarUrl = (id: number) => {
-    // Deterministic selection based on ID
-    const portraitIds = [32, 44, 85, 22, 90, 11, 46, 60, 54, 82];
-    const portraitIndex = Math.abs(id) % portraitIds.length;
-    return `https://randomuser.me/api/portraits/men/${portraitIds[portraitIndex]}.jpg`;
-  };
-
-  /**
-   * Triggers the status toggle action
-   */
   const handleToggleStatus = (rep: { id: number; storeName: string; isActive: boolean }) => {
     if (rep.isActive) {
       // Prompt to Suspend
@@ -190,48 +123,45 @@ export default function RepresentativesScreen(): JSX.Element {
   const safeTop = insets.top > 0 ? insets.top : 47;
 
   return (
-    <View className="flex-1 bg-[#f8fafd]">
-      <StatusBar style="light" />
+    <View className="flex-1 bg-white">
+      <StatusBar style="dark" />
 
-      {/* Blue Header Banner */}
-      <View className="bg-[#0F4C92] pb-11" style={{ paddingTop: safeTop }}>
-        <View className="flex-row-reverse items-center justify-between px-6 py-3">
-          {/* Title on Right */}
-          <Text className="text-xl font-bold text-white text-right">إدارة المندوبين</Text>
-
-          {/* Hamburger Menu Icon on Left (Opens Sidebar Drawer) */}
-          <TouchableOpacity onPress={() => toggleSidebar(true)} className="p-1" activeOpacity={0.7}>
-            <Menu size={28} color="#ffffff" />
+      {/* Clean White Header Banner */}
+      <View className="bg-white border-b border-gray-100/50" style={{ paddingTop: safeTop }}>
+        <View className="flex-row items-center justify-between px-6 py-2.5">
+          {/* Back Button on Left */}
+          <TouchableOpacity
+            onPress={() => router.replace("/admin/more")}
+            className="p-1"
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={24} color="#1a202c" />
           </TouchableOpacity>
+
+          {/* Title on Right */}
+          <Text className="text-lg font-bold text-gray-900 text-right">المندوبين</Text>
         </View>
       </View>
 
-      {/* Content Container (Rounded White Card overlapping/below) */}
-      <View className="flex-1 -mt-6 rounded-t-[28px] bg-[#f8fafd] overflow-hidden">
-        {/* Search input section */}
-        <View className="px-6 pt-6 pb-4">
-          <View className="relative justify-center">
-            <TextInput
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="ابحث عن مندوب..."
-              placeholderTextColor="#a0aec0"
-              className="h-12 rounded-2xl border-[1.5px] border-gray-200 bg-white pr-11 pl-4 text-sm text-gray-800 font-semibold text-right"
-            />
-            <Search size={20} color="#a0aec0" style={{ position: "absolute", right: 16 }} />
-          </View>
-
-          {/* "صفحة" (Page) label mimicking mockup */}
-          <View className="flex-row justify-end mt-4 px-1">
-            <Text className="text-sm font-bold text-gray-800">صفحة</Text>
-          </View>
+      {/* Search Area */}
+      <View className="px-6 pt-3 pb-2 bg-[#f8fafd]">
+        <View className="relative justify-center">
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="ابحث عن مندوب..."
+            placeholderTextColor="#a0aec0"
+            className="h-10 rounded-xl border-[1.5px] border-gray-200 bg-white pr-11 pl-4 text-xs text-gray-800 font-semibold text-right"
+          />
+          <Search size={18} color="#a0aec0" style={{ position: "absolute", right: 16 }} />
         </View>
+      </View>
 
-        {/* Representatives List */}
+      {/* Representatives List */}
+      <View className="flex-1 bg-[#f8fafd]">
         {isLoading && !isRefetching ? (
-          <View className="flex-1 justify-center items-center">
-            <ActivityIndicator size="large" color="#0F4C92" />
-            <Text className="text-gray-500 mt-2 font-semibold">جاري تحميل البيانات...</Text>
+          <View className="pt-2">
+            <RepresentativeListSkeleton count={5} />
           </View>
         ) : error ? (
           <ScrollView
@@ -276,9 +206,10 @@ export default function RepresentativesScreen(): JSX.Element {
         ) : (
           <ScrollView
             contentContainerStyle={{
-              paddingHorizontal: 24,
+              paddingHorizontal: 16,
+              paddingTop: 12,
               paddingBottom: insets.bottom + 40,
-              gap: 16,
+              gap: 10,
             }}
             showsVerticalScrollIndicator={false}
             refreshControl={
@@ -288,205 +219,54 @@ export default function RepresentativesScreen(): JSX.Element {
             {filteredRepresentatives.map((rep) => (
               <View
                 key={rep.id}
-                className="bg-white rounded-3xl p-4 flex-row items-center justify-between shadow-sm border border-gray-50"
+                className="bg-white rounded-2xl p-3.5 flex-row items-center justify-between shadow-sm border border-gray-100/80"
               >
                 {/* Left Side Action Button */}
                 <TouchableOpacity
                   onPress={() => !isActionLoading && handleToggleStatus(rep)}
                   disabled={isActionLoading}
                   activeOpacity={0.7}
-                  className={`px-4 py-2.5 rounded-full min-w-[96px] items-center justify-center ${
-                    rep.isActive ? "bg-[#dbeafe]" : "bg-[#fee2e2]"
+                  className={`px-3.5 py-1.5 rounded-full min-w-[84px] items-center justify-center ${
+                    rep.isActive ? "bg-[#e0f2fe]" : "bg-[#fee2e2]"
                   }`}
                 >
                   {rep.isActive ? (
-                    <Text className="text-[#0c3f7c] font-black text-xs">إضافة تعديل</Text>
+                    <Text className="text-[#0F4C92] font-extrabold text-[11px]">تعديل الحالة</Text>
                   ) : (
                     <View className="flex-row items-center gap-1">
-                      <Text className="text-[#991b1b] font-black text-xs">غير نشط</Text>
+                      <Text className="text-[#991b1b] font-extrabold text-[11px]">غير نشط</Text>
                       <Text className="text-xs">😢</Text>
                     </View>
                   )}
                 </TouchableOpacity>
 
                 {/* Right Side Info & Avatar */}
-                <View className="flex-row items-center gap-3.5 flex-1 justify-end">
+                <View className="flex-row items-center gap-3 flex-1 justify-end">
                   {/* Name and status */}
                   <View className="items-end">
-                    <Text className="font-bold text-gray-900 text-[15px] mb-1 text-right">
+                    <Text className="font-extrabold text-gray-900 text-sm mb-0.5 text-right">
                       {rep.storeName}
                     </Text>
                     <View className="flex-row-reverse items-center gap-1.5">
-                      <Text className="text-[11px] font-bold text-emerald-600">متاح</Text>
+                      <Text className="text-[10px] font-bold text-emerald-600">متاح</Text>
                       <Text
-                        className={`text-[11px] font-semibold ${rep.isActive ? "text-emerald-600" : "text-gray-400"}`}
+                        className={`text-[10px] font-bold ${rep.isActive ? "text-emerald-600" : "text-gray-400"}`}
                       >
                         {rep.isActive ? "نشط" : "غير نشط"}
                       </Text>
                     </View>
                   </View>
 
-                  {/* Avatar */}
-                  <Image
-                    source={{ uri: getAvatarUrl(rep.id) }}
-                    className="w-11 h-11 rounded-full bg-gray-100"
-                  />
+                  {/* Avatar Default Icon */}
+                  <View className="w-10 h-10 rounded-full bg-gray-50 border border-gray-100 items-center justify-center">
+                    <User size={18} className="text-gray-400" />
+                  </View>
                 </View>
               </View>
             ))}
           </ScrollView>
         )}
       </View>
-
-      {/* Sidebar Overlay */}
-      {isSidebarOpen && (
-        <View className="absolute inset-0 z-50 flex-row">
-          {/* Backdrop (closes sidebar on press) */}
-          <Pressable
-            className="absolute inset-0 bg-black/40"
-            onPress={() => toggleSidebar(false)}
-          />
-
-          {/* Animated Sidebar Container (Left side drawer) */}
-          <Animated.View
-            style={[
-              {
-                width: 280,
-                height: "100%",
-                backgroundColor: "#ffffff",
-                paddingTop: insets.top,
-                paddingBottom: Math.max(insets.bottom, 20),
-                transform: [{ translateX: slideAnim }],
-                shadowColor: "#000",
-                shadowOffset: { width: 4, height: 0 },
-                shadowOpacity: 0.1,
-                shadowRadius: 10,
-                elevation: 8,
-              },
-            ]}
-            className="flex-col justify-between"
-          >
-            {/* Top Section: Header & Menu Items */}
-            <View className="flex-1">
-              {/* Sidebar Header */}
-              <View className="flex-row-reverse items-center justify-between px-5 py-4 border-b border-gray-100">
-                <View className="items-end">
-                  <Text className="font-extrabold text-[#0c3f7c] text-base text-right">
-                    لوحة التحكم
-                  </Text>
-                  <Text className="text-gray-400 text-[10px] font-semibold text-right">
-                    {user?.fullName || "المسؤول"}
-                  </Text>
-                </View>
-                <TouchableOpacity onPress={() => toggleSidebar(false)} className="p-1">
-                  <X size={20} color="#a0aec0" />
-                </TouchableOpacity>
-              </View>
-
-              {/* Sidebar Links */}
-              <View className="p-4 gap-2">
-                {/* Link: الملف الشخصي */}
-                <TouchableOpacity
-                  onPress={() => {
-                    toggleSidebar(false);
-                    router.push("/admin/profile");
-                  }}
-                  className="flex-row-reverse items-center gap-3 p-3.5 rounded-2xl active:bg-gray-50"
-                  activeOpacity={0.7}
-                >
-                  <User size={18} color="#718096" />
-                  <Text className="font-bold text-gray-600 text-sm text-right">الملف الشخصي</Text>
-                </TouchableOpacity>
-
-                {/* Active Link: إدارة المندوبين */}
-                <TouchableOpacity
-                  className="flex-row-reverse items-center gap-3 bg-blue-50/70 p-3.5 rounded-2xl"
-                  activeOpacity={0.9}
-                >
-                  <Users size={18} color="#0c3f7c" />
-                  <Text className="font-extrabold text-[#0c3f7c] text-sm text-right">
-                    إدارة المندوبين
-                  </Text>
-                </TouchableOpacity>
-
-                {/* Link: إدارة الطلبات */}
-                <TouchableOpacity
-                  onPress={() => {
-                    toggleSidebar(false);
-                    router.replace("/admin/orders" as any);
-                  }}
-                  className="flex-row-reverse items-center gap-3 p-3.5 rounded-2xl active:bg-gray-50"
-                  activeOpacity={0.7}
-                >
-                  <ClipboardList size={18} color="#718096" />
-                  <Text className="font-bold text-gray-600 text-sm text-right">إدارة الطلبات</Text>
-                </TouchableOpacity>
-
-                {/* Link: إدارة الفئات */}
-                <TouchableOpacity
-                  onPress={() => {
-                    toggleSidebar(false);
-                    router.replace("/admin/categories" as any);
-                  }}
-                  className="flex-row-reverse items-center gap-3 p-3.5 rounded-2xl active:bg-gray-50"
-                  activeOpacity={0.7}
-                >
-                  <Tag size={18} color="#718096" />
-                  <Text className="font-bold text-gray-600 text-sm text-right">إدارة الفئات</Text>
-                </TouchableOpacity>
-
-                {/* Link: إدارة المنتجات */}
-                <TouchableOpacity
-                  onPress={() => {
-                    toggleSidebar(false);
-                    router.replace("/admin/products" as any);
-                  }}
-                  className="flex-row-reverse items-center gap-3 p-3.5 rounded-2xl active:bg-gray-50"
-                  activeOpacity={0.7}
-                >
-                  <Package size={18} color="#718096" />
-                  <Text className="font-bold text-gray-600 text-sm text-right">إدارة المنتجات</Text>
-                </TouchableOpacity>
-
-                {/* Link: إضافة منتج */}
-                <TouchableOpacity
-                  onPress={() => {
-                    toggleSidebar(false);
-                    router.replace("/admin/add-product" as any);
-                  }}
-                  className="flex-row-reverse items-center gap-3 p-3.5 rounded-2xl active:bg-gray-50"
-                  activeOpacity={0.7}
-                >
-                  <ShoppingBag size={18} color="#718096" />
-                  <Text className="font-bold text-gray-600 text-sm text-right">إضافة منتج</Text>
-                </TouchableOpacity>
-
-                {/* Placeholder Link: إعدادات النظام */}
-                <TouchableOpacity
-                  onPress={() => Alert.alert("قريباً", "سيتم إضافة صفحة إعدادات النظام قريباً.")}
-                  className="flex-row-reverse items-center gap-3 p-3.5 rounded-2xl active:bg-gray-50"
-                  activeOpacity={0.7}
-                >
-                  <Settings size={18} color="#718096" />
-                  <Text className="font-bold text-gray-600 text-sm text-right">إعدادات النظام</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Bottom Section: Pinned Logout Button */}
-            <View className="px-4 pt-4 border-t border-gray-100">
-              <TouchableOpacity
-                onPress={handleLogout}
-                className="flex-row-reverse items-center justify-center gap-2 bg-red-50 p-3.5 rounded-2xl active:bg-red-100"
-                activeOpacity={0.7}
-              >
-                <LogOut size={18} color="#e53e3e" />
-                <Text className="font-bold text-danger text-sm text-center">تسجيل الخروج</Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-        </View>
-      )}
     </View>
   );
 }

@@ -25,6 +25,7 @@ import {
   useCreateProductMutation,
   useUploadImageMutation,
 } from "../../hooks/useProducts";
+import CategoryListSkeleton from "../../components/CategoryListSkeleton";
 
 // Wrap Lucide icons with Uniwind for tailwind compatibility
 const StyledArrowLeft = withUniwind(ArrowLeft);
@@ -52,7 +53,6 @@ export default function AddProductScreen(): JSX.Element {
   // Route guard: only allow users with Admin role or credentials
   useEffect(() => {
     if (user && !isAdmin) {
-      Alert.alert("تنبيه", "عذراً، هذه الصفحة مخصصة للمسؤولين فقط.");
       router.replace("/" as any);
     }
   }, [user, isAdmin]);
@@ -262,39 +262,30 @@ export default function AddProductScreen(): JSX.Element {
 
   return (
     <View className="flex-1 bg-[#f8fafd]">
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
-      {/* Blue Header Banner */}
-      <View style={{ backgroundColor: "#0F4C92", paddingTop: safeTop, paddingBottom: 44 }}>
-        <View className="flex-row items-center justify-between px-6 py-3">
+      {/* Clean White Header Banner */}
+      <View className="bg-white border-b border-gray-100/50" style={{ paddingTop: safeTop }}>
+        <View className="flex-row items-center justify-between px-6 py-2.5">
           {/* Back Button on Left */}
           <TouchableOpacity
             onPress={() => router.replace("/admin/products")}
             className="p-1"
             activeOpacity={0.7}
           >
-            <StyledArrowLeft size={28} className="text-white" />
+            <StyledArrowLeft size={24} className="text-gray-900" />
           </TouchableOpacity>
 
           {/* Title on Right */}
-          <Text
-            style={{ fontFamily: "System" }}
-            className="text-xl font-bold text-white text-right"
-          >
-            تفاصيل المنتج
-          </Text>
+          <Text className="text-lg font-bold text-gray-900 text-right">إضافة منتج</Text>
         </View>
       </View>
 
-      {/* Main Content Rounded Card */}
+      {/* Main Content Container */}
       <View
         style={{
           flex: 1,
-          marginTop: -24,
-          borderTopLeftRadius: 28,
-          borderTopRightRadius: 28,
           backgroundColor: "#f8fafd",
-          overflow: "hidden",
         }}
       >
         <ScrollView
@@ -522,8 +513,8 @@ export default function AddProductScreen(): JSX.Element {
 
             {/* List of Categories */}
             {isLoadingCategories ? (
-              <View className="py-10 items-center justify-center">
-                <ActivityIndicator size="large" color="#0F4C92" />
+              <View className="py-4">
+                <CategoryListSkeleton count={4} marginHorizontal={0} />
               </View>
             ) : categories.length === 0 ? (
               <View className="py-10 items-center justify-center">

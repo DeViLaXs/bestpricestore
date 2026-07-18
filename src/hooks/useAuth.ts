@@ -1,6 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { useAuthStore } from "../store/authStore";
-import { authService, RegisterRequest, LoginRequest, AuthResponse } from "../services/auth.service";
+import { authService } from "../services/auth.service";
+import { RegisterRequest, LoginRequest, AuthResponse } from "../types";
 
 export const getErrorMessage = (
   error: any,
@@ -56,17 +57,37 @@ export const getErrorMessage = (
   return defaultMsg;
 };
 
-export const checkIsAdmin = (
-  user: { role?: string; fullName?: string; phone?: string } | null | undefined
-): boolean => {
-  if (!user) return false;
-  return (
-    user.role?.toLowerCase() === "admin" ||
-    user.fullName?.toLowerCase() === "admin" ||
-    user.phone === "777777777" ||
-    user.phone === "773124470"
-  );
+export type AppRole = "admin" | "representative" | null;
+
+export const getUserRole = (
+  user: { role?: string | string[] } | null | undefined
+): AppRole => {
+  if (!user) return null;
+
+  const roles = Array.isArray(user.role)
+    ? user.role
+    : String(user.role || "")
+        .split(",")
+        .map((role) => role.trim());
+
+  if (roles.some((role) => role.toLowerCase() === "admin")) {
+    return "admin";
+  }
+
+  if (roles.some((role) => role.toLowerCase() === "representative")) {
+    return "representative";
+  }
+
+  return null;
 };
+
+export const checkIsAdmin = (
+  user: { role?: string | string[]; fullName?: string; phone?: string } | null | undefined
+): boolean => getUserRole(user) === "admin";
+
+export const checkIsRepresentative = (
+  user: { role?: string | string[] } | null | undefined
+): boolean => getUserRole(user) === "representative";
 
 /**
  * Custom hook to consume the Zustand auth store and React Query mutations.
@@ -79,7 +100,9 @@ export const useAuth = () => {
   const setToken = useAuthStore((state) => state.setToken);
   const logout = useAuthStore((state) => state.logout);
 
-  const isAdmin = checkIsAdmin(user);
+  const role = getUserRole(user);
+  const isAdmin = role === "admin";
+  const isRepresentative = role === "representative";
 
   // Register mutation
   const registerMutation = useMutation<AuthResponse, Error, RegisterRequest>({
@@ -119,7 +142,9 @@ export const useAuth = () => {
     user,
     token,
     isAuthenticated,
+    role,
     isAdmin,
+    isRepresentative,
     registerMutation,
     loginMutation,
     logoutMutation,

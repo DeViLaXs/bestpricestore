@@ -24,9 +24,10 @@ import {
 } from "lucide-react-native";
 
 import { useCartStore } from "../../store/cartStore";
-import { productService } from "../../services/product.service";
 import { useAuth } from "../../hooks/useAuth";
-import { orderService, OrderResponseData } from "../../services/order.service";
+import { useGetProductDetails } from "../../hooks/useProducts";
+import { usePlaceOrderMutation } from "../../hooks/useOrders";
+import { OrderResponseData } from "../../types";
 
 // Wrap Lucide Icons with Uniwind
 const StyledShoppingCart = withUniwind(ShoppingCart);
@@ -38,6 +39,8 @@ const StyledCheck = withUniwind(Check);
 export default function CartScreen(): JSX.Element {
   const insets = useSafeAreaInsets();
   const { items, updateQuantity, removeItem, toggleSelect, setItems } = useCartStore();
+  const getProductDetails = useGetProductDetails();
+  const placeOrderMutation = usePlaceOrderMutation();
 
   const { isAuthenticated } = useAuth();
   const [isConfirmModalVisible, setIsConfirmModalVisible] = useState(false);
@@ -61,7 +64,7 @@ export default function CartScreen(): JSX.Element {
     for (let i = 0; i < updatedItems.length; i++) {
       const item = updatedItems[i];
       try {
-        const product = await productService.getProduct(item.productId);
+        const product = await getProductDetails(item.productId);
         if (!product || !product.isActive) {
           // Product is inactive or deleted
           updatedItems.splice(i, 1);
@@ -222,7 +225,7 @@ export default function CartScreen(): JSX.Element {
         const item = updatedItems[i];
         if (!item.selected) continue; // Only validate selected items
         try {
-          const product = await productService.getProduct(item.productId);
+          const product = await getProductDetails(item.productId);
           if (product && product.price !== item.price) {
             priceChanges.push({
               name: item.name,
@@ -283,7 +286,7 @@ export default function CartScreen(): JSX.Element {
         const item = updatedItems[i];
         if (!item.selected) continue;
         try {
-          const product = await productService.getProduct(item.productId);
+          const product = await getProductDetails(item.productId);
           if (product && product.price !== item.price) {
             priceChanges.push({
               name: item.name,
@@ -320,7 +323,7 @@ export default function CartScreen(): JSX.Element {
         quantity: item.quantity,
       }));
 
-      const result = await orderService.placeOrder({ items: orderItems });
+      const result = await placeOrderMutation.mutateAsync({ items: orderItems });
 
       setCreatedOrderData(result);
       setIsConfirmModalVisible(false);
@@ -355,17 +358,11 @@ export default function CartScreen(): JSX.Element {
     <View className="flex-1 bg-[#f8fafd]">
       <StatusBar style="dark" />
       
-      {/* Header bar */}
-      <View
-        className="bg-white border-b border-gray-100 flex-row-reverse items-center justify-between px-6 py-4 shadow-xs"
-        style={{ paddingTop: safeTop }}
-      >
-        {/* Title */}
-        <Text className="text-[22px] font-black text-[#0c3f7c] text-right">
-          سلة التسوق
-        </Text>
-
-        
+      {/* Clean White Header Banner */}
+      <View className="bg-white border-b border-gray-100/50" style={{ paddingTop: safeTop }}>
+        <View className="flex-row-reverse items-center px-6 py-2.5">
+          <Text className="text-lg font-bold text-gray-900 text-right">سلة التسوق</Text>
+        </View>
       </View>
 
       <ScrollView
@@ -377,9 +374,9 @@ export default function CartScreen(): JSX.Element {
 
         {/* Stock Validation indicator */}
         {isValidating && (
-          <View className="flex-row justify-center items-center py-3 gap-2 bg-[#f0f7ff] border-y border-blue-50 mt-3">
-            <ActivityIndicator size="small" color="#0c3f7c" />
-            <Text className="text-xs text-[#0c3f7c] font-bold">
+          <View className="flex-row justify-center items-center py-3 gap-2 bg-[#edf5ff] border-y border-blue-50 mt-3">
+            <ActivityIndicator size="small" color="#0F4C92" />
+            <Text className="text-xs text-[#0F4C92] font-bold">
               جاري التحقق من توفر الكميات في المخزن...
             </Text>
           </View>
@@ -394,7 +391,7 @@ export default function CartScreen(): JSX.Element {
             </Text>
             <TouchableOpacity
               onPress={() => router.push("/shop")}
-              className="mt-6 bg-[#0c3f7c] px-6 py-3 rounded-2xl active:opacity-90 shadow-sm"
+              className="mt-6 bg-[#0F4C92] px-6 py-3 rounded-2xl active:opacity-90 shadow-sm"
             >
               <Text className="text-white font-extrabold text-xs">تصفح المتجر الآن</Text>
             </TouchableOpacity>
@@ -418,12 +415,12 @@ export default function CartScreen(): JSX.Element {
                       activeOpacity={0.8}
                       className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
                         item.selected
-                          ? "border-[#0c3f7c] bg-white"
+                          ? "border-[#0F4C92] bg-white"
                           : "border-slate-300 bg-white"
                       }`}
                     >
                       {item.selected && (
-                        <View className="w-3 h-3 rounded-full bg-[#0c3f7c]" />
+                        <View className="w-3 h-3 rounded-full bg-[#0F4C92]" />
                       )}
                     </TouchableOpacity>
 
@@ -449,7 +446,7 @@ export default function CartScreen(): JSX.Element {
                     >
                       {item.name}
                     </Text>
-                    <Text className="text-xs font-black text-[#0c3f7c] text-right mt-1">
+                    <Text className="text-xs font-black text-[#0F4C92] text-right mt-1">
                       {item.price} {currencySymbol}
                     </Text>
                   </View>
@@ -474,7 +471,7 @@ export default function CartScreen(): JSX.Element {
                         className={`w-6 h-6 rounded-lg items-center justify-center ${
                           item.quantity >= item.quantityInStock
                             ? "bg-slate-200/50"
-                            : "bg-[#0c3f7c]"
+                            : "bg-[#0F4C92]"
                         }`}
                         activeOpacity={0.7}
                       >
@@ -498,7 +495,7 @@ export default function CartScreen(): JSX.Element {
                         onPress={() => handleDecreaseQuantity(item)}
                         disabled={item.quantity <= 1}
                         className={`w-6 h-6 rounded-lg items-center justify-center ${
-                          item.quantity <= 1 ? "bg-slate-200/50" : "bg-[#0c3f7c]"
+                          item.quantity <= 1 ? "bg-slate-200/50" : "bg-[#0F4C92]"
                         }`}
                         activeOpacity={0.7}
                       >
@@ -521,7 +518,7 @@ export default function CartScreen(): JSX.Element {
               {(totals.saudiTotal > 0 || (totals.saudiTotal === 0 && totals.yemeniTotal === 0)) && (
                 <View className="flex-row-reverse justify-between items-center">
                   <Text className="text-sm font-black text-slate-800">إجمالي بالريال السعودي</Text>
-                  <Text className="text-base font-black text-[#0c3f7c]">
+                  <Text className="text-base font-black text-[#0F4C92]">
                     {totals.saudiTotal} ر.س
                   </Text>
                 </View>
@@ -531,7 +528,7 @@ export default function CartScreen(): JSX.Element {
               {totals.yemeniTotal > 0 && (
                 <View className="flex-row-reverse justify-between items-center">
                   <Text className="text-sm font-black text-slate-800">إجمالي بالريال اليمني</Text>
-                  <Text className="text-base font-black text-[#0c3f7c]">
+                  <Text className="text-base font-black text-[#0F4C92]">
                     {totals.yemeniTotal} ر.ي
                   </Text>
                 </View>
@@ -541,7 +538,7 @@ export default function CartScreen(): JSX.Element {
               {Object.entries(totals.otherTotals).map(([name, total]) => (
                 <View key={name} className="flex-row-reverse justify-between items-center">
                   <Text className="text-sm font-black text-slate-800">الإجمالي ({name})</Text>
-                  <Text className="text-base font-black text-[#0c3f7c]">
+                  <Text className="text-base font-black text-[#0F4C92]">
                     {total} {name}
                   </Text>
                 </View>
@@ -571,7 +568,7 @@ export default function CartScreen(): JSX.Element {
             onPress={handleCheckout}
             disabled={isValidatingPrices}
             activeOpacity={0.85}
-            className="w-full h-12.5 bg-[#0c3f7c] rounded-2xl items-center justify-center shadow-md active:opacity-95 flex-row gap-2"
+            className="w-full h-12.5 bg-[#0F4C92] rounded-2xl items-center justify-center shadow-md active:opacity-95 flex-row gap-2"
           >
             {isValidatingPrices ? (
               <>
@@ -606,7 +603,7 @@ export default function CartScreen(): JSX.Element {
           >
             {/* Modal Header */}
             <View className="flex-row-reverse items-center justify-between border-b border-gray-100 pb-4 mb-4">
-              <Text className="text-lg font-black text-[#0c3f7c]">مراجعة وتأكيد الطلب</Text>
+              <Text className="text-lg font-black text-[#0F4C92]">مراجعة وتأكيد الطلب</Text>
               <TouchableOpacity
                 onPress={() => setIsConfirmModalVisible(false)}
                 disabled={isSubmittingOrder}
@@ -660,7 +657,7 @@ export default function CartScreen(): JSX.Element {
 
                         {/* Left: item total price */}
                         <View className="items-start">
-                          <Text className="text-xs font-black text-[#0c3f7c]">
+                          <Text className="text-xs font-black text-[#0F4C92]">
                             {item.price * item.quantity} {currencySymbol}
                           </Text>
                           <Text className="text-[10px] text-gray-400 font-bold mt-0.5">
@@ -679,7 +676,7 @@ export default function CartScreen(): JSX.Element {
                 {totals.saudiTotal > 0 && (
                   <View className="flex-row-reverse justify-between items-center">
                     <Text className="text-xs font-bold text-slate-500">إجمالي بالريال السعودي</Text>
-                    <Text className="text-sm font-black text-[#0c3f7c]">
+                    <Text className="text-sm font-black text-[#0F4C92]">
                       {totals.saudiTotal} ر.س
                     </Text>
                   </View>
@@ -688,7 +685,7 @@ export default function CartScreen(): JSX.Element {
                 {totals.yemeniTotal > 0 && (
                   <View className="flex-row-reverse justify-between items-center">
                     <Text className="text-xs font-bold text-slate-500">إجمالي بالريال اليمني</Text>
-                    <Text className="text-sm font-black text-[#0c3f7c]">
+                    <Text className="text-sm font-black text-[#0F4C92]">
                       {totals.yemeniTotal} ر.ي
                     </Text>
                   </View>
@@ -710,7 +707,7 @@ export default function CartScreen(): JSX.Element {
                 onPress={handlePlaceOrder}
                 disabled={isSubmittingOrder}
                 activeOpacity={0.85}
-                className="w-full h-12 bg-[#0c3f7c] rounded-2xl items-center justify-center shadow-md active:opacity-95 flex-row gap-2"
+                className="w-full h-12 bg-[#0F4C92] rounded-2xl items-center justify-center shadow-md active:opacity-95 flex-row gap-2"
               >
                 {isSubmittingOrder ? (
                   <ActivityIndicator size="small" color="white" />
@@ -781,7 +778,7 @@ export default function CartScreen(): JSX.Element {
                 {createdOrderData.totalAmountSar > 0 && (
                   <View className="flex-row-reverse justify-between items-center">
                     <Text className="text-[11px] font-bold text-slate-500">الإجمالي بالريال السعودي</Text>
-                    <Text className="text-xs font-black text-[#0c3f7c]">
+                    <Text className="text-xs font-black text-[#0F4C92]">
                       {createdOrderData.totalAmountSar} ر.س
                     </Text>
                   </View>
@@ -790,7 +787,7 @@ export default function CartScreen(): JSX.Element {
                 {createdOrderData.totalAmountYer > 0 && (
                   <View className="flex-row-reverse justify-between items-center">
                     <Text className="text-[11px] font-bold text-slate-500">الإجمالي بالريال اليمني</Text>
-                    <Text className="text-xs font-black text-[#0c3f7c]">
+                    <Text className="text-xs font-black text-[#0F4C92]">
                       {createdOrderData.totalAmountYer} ر.ي
                     </Text>
                   </View>
@@ -799,10 +796,11 @@ export default function CartScreen(): JSX.Element {
                 <View className="flex-row-reverse justify-between items-center border-t border-slate-200/40 pt-2 mt-1">
                   <Text className="text-[11px] font-bold text-slate-500">تاريخ الطلب</Text>
                   <Text className="text-[10px] font-semibold text-slate-600">
-                    {new Date(createdOrderData.createdAt).toLocaleDateString("ar-EG", {
+                    {new Date(createdOrderData.createdAt).toLocaleDateString("ar-YE", {
                       year: "numeric",
-                      month: "long",
-                      day: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                      numberingSystem: "latn",
                     })}
                   </Text>
                 </View>
@@ -817,7 +815,7 @@ export default function CartScreen(): JSX.Element {
                 setCreatedOrderData(null);
               }}
               activeOpacity={0.8}
-              className="w-full h-11 bg-[#0c3f7c] rounded-xl items-center justify-center active:opacity-90 shadow-sm"
+              className="w-full h-11 bg-[#0F4C92] rounded-xl items-center justify-center active:opacity-90 shadow-sm"
             >
               <Text className="text-white font-extrabold text-xs">حسنًا</Text>
             </TouchableOpacity>
