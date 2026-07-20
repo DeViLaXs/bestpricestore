@@ -9,6 +9,8 @@ import {
   Product,
   BrowseProduct,
   BrowseProductsResponse,
+  LatestProduct,
+  TopSellingProduct,
   ApiResponseEnvelope,
 } from "../types";
 
@@ -198,6 +200,40 @@ export const productService = {
         responseData.errors && responseData.errors.length > 0
           ? responseData.errors.join("\n")
           : "فشلت عملية إلغاء تفعيل المنتج."
+      );
+    }
+  },
+
+  /**
+   * Fetches latest 5 active products widget
+   */
+  async getLatestProducts(): Promise<LatestProduct[]> {
+    const response = await api.get<ApiResponseEnvelope<LatestProduct[]>>("/Products/latest");
+    const responseData = response.data;
+    if (responseData.success && responseData.data) {
+      return responseData.data;
+    } else {
+      throw new Error(
+        responseData.errors && responseData.errors.length > 0
+          ? responseData.errors.join("\n")
+          : "فشلت عملية جلب أحدث المنتجات."
+      );
+    }
+  },
+
+  /**
+   * Fetches top 10 selling products widget
+   */
+  async getTopSellingProducts(): Promise<TopSellingProduct[]> {
+    const response = await api.get<ApiResponseEnvelope<TopSellingProduct[]>>("/Products/top-selling");
+    const responseData = response.data;
+    if (responseData.success && responseData.data) {
+      return responseData.data;
+    } else {
+      throw new Error(
+        responseData.errors && responseData.errors.length > 0
+          ? responseData.errors.join("\n")
+          : "فشلت عملية جلب المنتجات الأكثر مبيعاً."
       );
     }
   },

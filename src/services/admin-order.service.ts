@@ -1,5 +1,5 @@
 import { api } from "../api/api";
-import { ApiResponseEnvelope, OrderResponseData, AdminOrderSummary } from "../types";
+import { ApiResponseEnvelope, OrderResponseData, AdminOrderSummary, EditOrderItemInput } from "../types";
 
 export const adminOrderService = {
   /**
@@ -144,6 +144,107 @@ export const adminOrderService = {
               totalAmountSar: order.totalAmountSar,
               createdAt: order.createdAt,
               items: MOCK_ORDER_ITEMS[id] || [],
+            });
+          }, 800);
+        });
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Updates the items and quantities of an order (for returns or reductions).
+   */
+  async editAdminOrderItems(id: number, items: EditOrderItemInput[]): Promise<OrderResponseData> {
+    try {
+      const response = await api.put<ApiResponseEnvelope<OrderResponseData>>(`/admin/orders/${id}/items`, {
+        items,
+      });
+      const responseData = response.data;
+      if (responseData.success && responseData.data) {
+        return responseData.data;
+      } else {
+        throw new Error(
+          responseData.errors && responseData.errors.length > 0
+            ? responseData.errors.join("\n")
+            : "فشلت عملية تعديل عناصر الطلب."
+        );
+      }
+    } catch (error: any) {
+      if (__DEV__ && (!error.response || error.code === "ERR_NETWORK")) {
+        console.warn(`Backend server not reachable. Simulating edit items for order ID: ${id}...`);
+        return new Promise((resolve, reject) => {
+          setTimeout(() => {
+            const orderIndex = MOCK_ADMIN_ORDERS.findIndex((o) => o.id === id);
+            if (orderIndex === -1) {
+              reject(new Error("هذا الطلب غير موجود في النظام."));
+              return;
+            }
+
+            const order = MOCK_ADMIN_ORDERS[orderIndex];
+
+            // Terminal status check: Cancelled orders (5) cannot be edited
+            if (order.orderStatusId === 5) {
+              reject(new Error("Cannot edit items of a cancelled order."));
+              return;
+            }
+
+            const currentItems = MOCK_ORDER_ITEMS[id] || [];
+
+            // Business rule: quantities can only be decreased or removed (not increased)
+            for (const editItem of items) {
+              const originalItem = currentItems.find((i) => i.productImageId === editItem.productImageId);
+              if (originalItem && editItem.quantity > originalItem.quantity) {
+                reject(
+                  new Error(
+                    `Increasing product quantity is not allowed. Representative must place a new order for additional quantities of variation ID ${editItem.productImageId}.`
+                  )
+                );
+                return;
+              }
+            }
+
+            // Update quantities and filter out zero-quantity items
+            const updatedItems: any[] = [];
+            for (const origItem of currentItems) {
+              const editMatch = items.find((i) => i.productImageId === origItem.productImageId);
+              const newQty = editMatch !== undefined ? editMatch.quantity : origItem.quantity;
+              if (newQty > 0) {
+                updatedItems.push({
+                  ...origItem,
+                  quantity: newQty,
+                  totalAmount: origItem.unitPrice * newQty,
+                });
+              }
+            }
+
+            MOCK_ORDER_ITEMS[id] = updatedItems;
+
+            // Recalculate totals
+            let newYer = 0;
+            let newSar = 0;
+            updatedItems.forEach((item) => {
+              if (item.currencyId === 1) {
+                newYer += item.totalAmount;
+              } else if (item.currencyId === 2) {
+                newSar += item.totalAmount;
+              }
+            });
+
+            MOCK_ADMIN_ORDERS[orderIndex] = {
+              ...order,
+              totalAmountYer: newYer,
+              totalAmountSar: newSar,
+            };
+
+            resolve({
+              id: order.id,
+              userId: order.userId,
+              orderStatusId: order.orderStatusId,
+              totalAmountYer: newYer,
+              totalAmountSar: newSar,
+              createdAt: order.createdAt,
+              items: updatedItems,
             });
           }, 800);
         });

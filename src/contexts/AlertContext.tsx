@@ -1,7 +1,7 @@
 import type { JSX } from "react";
-import { createContext, useContext, useState, useCallback, useRef } from "react";
+import { createContext, useContext, useState, useCallback } from "react";
 import { Modal, View, Text, TouchableOpacity, Animated, StyleSheet } from "react-native";
-import { Trash2, Check, AlertCircle, HelpCircle, EyeOff } from "lucide-react-native";
+import { Check, AlertCircle, HelpCircle, EyeOff } from "lucide-react-native";
 
 export interface AlertButton {
   text: string;
@@ -28,8 +28,8 @@ export function AlertProvider({ children }: { children: React.ReactNode }): JSX.
   const [buttons, setButtons] = useState<AlertButton[]>([]);
 
   // Animation values
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [scaleAnim] = useState(() => new Animated.Value(0.9));
+  const [fadeAnim] = useState(() => new Animated.Value(0));
 
   const showAlert = useCallback((alertTitle: string, alertMessage: string, alertButtons?: AlertButton[]) => {
     setTitle(alertTitle);

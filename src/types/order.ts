@@ -3,6 +3,15 @@ export interface OrderItemInput {
   quantity: number;
 }
 
+export interface EditOrderItemInput {
+  productImageId: number;
+  quantity: number;
+}
+
+export interface EditOrderItemsRequest {
+  items: EditOrderItemInput[];
+}
+
 export interface CreateOrderRequest {
   items: OrderItemInput[];
 }

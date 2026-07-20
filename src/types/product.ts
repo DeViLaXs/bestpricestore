@@ -62,6 +62,8 @@ export interface BrowseProduct {
   price: number;
   currencyId: number;
   primaryImageUrl: string;
+  categoryId?: number;
+  categoryName?: string;
 }
 
 export interface BrowseProductsResponse {
@@ -73,3 +75,21 @@ export interface BrowseProductsResponse {
   hasPreviousPage: boolean;
   hasNextPage: boolean;
 }
+
+export interface LatestProduct {
+  id: number;
+  name: string;
+  price: number;
+  currencyId: number;
+  primaryImageUrl?: string;
+}
+
+export interface TopSellingProduct {
+  id: number;
+  name: string;
+  price: number;
+  currencyId: number;
+  primaryImageUrl?: string;
+  totalQuantitySold: number;
+}
+

@@ -7,6 +7,8 @@ import {
   CreateProductRequest,
   UpdateProductRequest,
   BrowseProductsResponse,
+  LatestProduct,
+  TopSellingProduct,
 } from "../types";
 
 /**
@@ -144,3 +146,24 @@ export const useGetProductDetails = () => {
     [queryClient]
   );
 };
+
+/**
+ * Hook to retrieve latest active products widget.
+ */
+export const useLatestProductsQuery = () => {
+  return useQuery<LatestProduct[], Error>({
+    queryKey: ["products-latest"],
+    queryFn: () => productService.getLatestProducts(),
+  });
+};
+
+/**
+ * Hook to retrieve top selling products widget.
+ */
+export const useTopSellingProductsQuery = () => {
+  return useQuery<TopSellingProduct[], Error>({
+    queryKey: ["products-top-selling"],
+    queryFn: () => productService.getTopSellingProducts(),
+  });
+};
+

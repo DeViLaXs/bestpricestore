@@ -24,6 +24,11 @@ import {
   ChevronLeft,
   X,
   Package,
+  Edit3,
+  Minus,
+  Plus,
+  RotateCcw,
+  Trash2,
 } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -36,6 +41,7 @@ import {
   useAdminOrdersQuery,
   useAdminOrderDetailsQuery,
   useAdminUpdateOrderStatusMutation,
+  useAdminEditOrderItemsMutation,
 } from "../../../hooks/useAdminOrders";
 
 // Wrap Lucide icons with Uniwind for Tailwind CSS layout compatibility
@@ -389,7 +395,23 @@ function AdminOrderDetailsModal({
   updateMutation,
 }: DetailsModalProps) {
   const { data: orderDetails, isLoading, error } = useAdminOrderDetailsQuery(orderId);
+  const editItemsMutation = useAdminEditOrderItemsMutation();
   const insets = useSafeAreaInsets();
+
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editedQuantities, setEditedQuantities] = useState<Record<number, number>>({});
+
+  // Sync edited quantities whenever orderDetails updates or edit mode opens
+  useEffect(() => {
+    if (orderDetails?.items) {
+      const initialMap: Record<number, number> = {};
+      orderDetails.items.forEach((item) => {
+        initialMap[item.productImageId] = item.quantity;
+      });
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setEditedQuantities(initialMap);
+    }
+  }, [orderDetails, isEditMode]);
 
   const handleUpdateStatus = (targetStatusId: number, targetName: string) => {
     const isCancel = targetStatusId === 5;
@@ -417,6 +439,37 @@ function AdminOrderDetailsModal({
     );
   };
 
+  const handleDecreaseQty = (productImageId: number) => {
+    setEditedQuantities((prev) => {
+      const current = prev[productImageId] ?? 0;
+      return { ...prev, [productImageId]: Math.max(0, current - 1) };
+    });
+  };
+
+  const handleIncreaseQty = (productImageId: number, maxQty: number) => {
+    setEditedQuantities((prev) => {
+      const current = prev[productImageId] ?? 0;
+      if (current >= maxQty) {
+        Alert.alert(
+          "غير مسموح بزيادة الكمية",
+          `وفقاً لقواعد النظام، لا يمكن زيادة كمية المنتج عن الكمية المطلوبة أصلاً (${maxQty}). لزيادة الكميات يجب إنشاء طلب جديد.`
+        );
+        return prev;
+      }
+      return { ...prev, [productImageId]: current + 1 };
+    });
+  };
+
+  const handleResetEdits = () => {
+    if (orderDetails?.items) {
+      const initialMap: Record<number, number> = {};
+      orderDetails.items.forEach((item) => {
+        initialMap[item.productImageId] = item.quantity;
+      });
+      setEditedQuantities(initialMap);
+    }
+  };
+
   const statusInfo = orderDetails ? getStatusDetails(orderDetails.orderStatusId) : null;
   const StatusIcon = statusInfo?.icon;
   const currentStatusId = orderDetails?.orderStatusId || 0;
@@ -432,6 +485,52 @@ function AdminOrderDetailsModal({
   }
 
   const isTerminal = currentStatusId === 4 || currentStatusId === 5;
+  const isCancelled = currentStatusId === 5;
+
+  // Compute live preview totals
+  const { previewYer, previewSar, hasChanges } = useMemo(() => {
+    if (!orderDetails?.items) return { previewYer: 0, previewSar: 0, hasChanges: false };
+    let yer = 0;
+    let sar = 0;
+    let changed = false;
+    orderDetails.items.forEach((item) => {
+      const qty = editedQuantities[item.productImageId] ?? item.quantity;
+      if (qty !== item.quantity) changed = true;
+      if (item.currencyId === 1) yer += item.unitPrice * qty;
+      else if (item.currencyId === 2) sar += item.unitPrice * qty;
+    });
+    return { previewYer: yer, previewSar: sar, hasChanges: changed };
+  }, [orderDetails, editedQuantities]);
+
+  const handleSaveEdits = () => {
+    if (!orderDetails) return;
+
+    const itemsPayload = orderDetails.items.map((item) => ({
+      productImageId: item.productImageId,
+      quantity: editedQuantities[item.productImageId] ?? item.quantity,
+    }));
+
+    Alert.alert(
+      "حفظ تعديلات الكميات / الإرجاع",
+      "هل أنت متأكد من حفظ التعديلات؟ سيتم إعادة حساب إجمالي الطلب وإرجاع كميات المنتجات المرجعة إلى المخزون تلقائياً.",
+      [
+        { text: "تراجع", style: "cancel" },
+        {
+          text: "تأكيد الحفظ",
+          onPress: async () => {
+            try {
+              await editItemsMutation.mutateAsync({ id: orderId, items: itemsPayload });
+              Alert.alert("تم الحفظ بنجاح", "تمت معالجة التعديلات وتحديث إجمالي الطلب والمخزون بنجاح.");
+              setIsEditMode(false);
+            } catch (err: any) {
+              Alert.alert("فشل التعديل", err.message || "حدث خطأ أثناء تعديل كميات الطلب.");
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
 
   const safeBottom = insets.bottom > 0 ? insets.bottom : 20;
 
@@ -446,7 +545,14 @@ function AdminOrderDetailsModal({
         <View className="bg-white rounded-t-[32px] h-[85%] relative overflow-hidden flex-col">
           {/* Header */}
           <View className="flex-row-reverse items-center justify-between px-6 py-5 border-b border-gray-100">
-            <Text className="font-black text-gray-900 text-lg">تفاصيل الطلب #{orderId}</Text>
+            <View className="flex-row-reverse items-center gap-2">
+              <Text className="font-black text-gray-900 text-lg">تفاصيل الطلب #{orderId}</Text>
+              {isEditMode && (
+                <View className="bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200">
+                  <Text className="text-amber-800 text-[10px] font-bold">وضع التعديل والإرجاع</Text>
+                </View>
+              )}
+            </View>
             <TouchableOpacity
               onPress={onClose}
               className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center"
@@ -478,7 +584,7 @@ function AdminOrderDetailsModal({
               <ScrollView
                 className="flex-1 px-6 pt-4"
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: safeBottom + 100 }}
+                contentContainerStyle={{ paddingBottom: safeBottom + 120 }}
               >
                 {/* Status Summary Card */}
                 <View className="bg-[#f8fafd] rounded-2xl p-4 border border-gray-100 mb-6 items-end">
@@ -502,174 +608,216 @@ function AdminOrderDetailsModal({
                   </View>
                 </View>
 
-                {/* Progress Visual Timeline Tracker */}
-                <Text className="text-right font-black text-gray-900 text-base mb-4">
-                  مسار حالة الطلب
-                </Text>
-                <View className="flex-row-reverse items-center justify-between bg-gray-50/50 p-4 border border-gray-100 rounded-2xl mb-6">
-                  {/* Step 1: Pending */}
-                  <View className="items-center flex">
-                    <View className={`w-8 h-8 rounded-full items-center justify-center ${
-                      currentStatusId >= 1 ? "bg-amber-500 text-white" : "bg-gray-200"
-                    }`}>
-                      {currentStatusId > 1 && currentStatusId !== 5 ? (
-                        <CheckCircle2 size={16} color="#ffffff" />
-                      ) : (
-                        <Text className="text-white text-xs font-bold">1</Text>
-                      )}
-                    </View>
-                    <Text className={`text-[9px] font-bold mt-1 text-center ${
-                      currentStatusId >= 1 ? "text-amber-700" : "text-gray-400"
-                    }`}>
-                      قيد المراجعة
-                    </Text>
-                  </View>
+                {/* Items List Section Header */}
+                <View className="flex-row-reverse items-center justify-between mb-4">
+                  <Text className="font-black text-gray-900 text-base">
+                    المنتجات المشتراة
+                  </Text>
 
-                  {/* Line 1 */}
-                  <View className={`h-0.5 flex-1 ${currentStatusId >= 2 && currentStatusId !== 5 ? "bg-blue-500" : "bg-gray-200"}`} />
+                  {!isCancelled && !isEditMode && (
+                    <TouchableOpacity
+                      onPress={() => setIsEditMode(true)}
+                      className="bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl flex-row-reverse items-center gap-1.5"
+                    >
+                      <Edit3 size={14} color="#d97706" />
+                      <Text className="text-amber-700 font-bold text-xs">
+                        تعديل الكميات / إرجاع
+                      </Text>
+                    </TouchableOpacity>
+                  )}
 
-                  {/* Step 2: Processing */}
-                  <View className="items-center flex">
-                    <View className={`w-8 h-8 rounded-full items-center justify-center ${
-                      currentStatusId >= 2 && currentStatusId !== 5 ? "bg-blue-500 text-white" : "bg-gray-200"
-                    }`}>
-                      {currentStatusId > 2 && currentStatusId !== 5 ? (
-                        <CheckCircle2 size={16} color="#ffffff" />
-                      ) : (
-                        <Text className={`text-xs font-bold ${currentStatusId >= 2 && currentStatusId !== 5 ? "text-white" : "text-gray-400"}`}>2</Text>
-                      )}
-                    </View>
-                    <Text className={`text-[9px] font-bold mt-1 text-center ${
-                      currentStatusId >= 2 && currentStatusId !== 5 ? "text-blue-700" : "text-gray-400"
-                    }`}>
-                      قيد المعالجة
-                    </Text>
-                  </View>
-
-                  {/* Line 2 */}
-                  <View className={`h-0.5 flex-1 ${currentStatusId >= 3 && currentStatusId !== 5 ? "bg-indigo-500" : "bg-gray-200"}`} />
-
-                  {/* Step 3: Shipped */}
-                  <View className="items-center flex">
-                    <View className={`w-8 h-8 rounded-full items-center justify-center ${
-                      currentStatusId >= 3 && currentStatusId !== 5 ? "bg-indigo-500 text-white" : "bg-gray-200"
-                    }`}>
-                      {currentStatusId > 3 && currentStatusId !== 5 ? (
-                        <CheckCircle2 size={16} color="#ffffff" />
-                      ) : (
-                        <Text className={`text-xs font-bold ${currentStatusId >= 3 && currentStatusId !== 5 ? "text-white" : "text-gray-400"}`}>3</Text>
-                      )}
-                    </View>
-                    <Text className={`text-[9px] font-bold mt-1 text-center ${
-                      currentStatusId >= 3 && currentStatusId !== 5 ? "text-indigo-700" : "text-gray-400"
-                    }`}>
-                      تم الشحن
-                    </Text>
-                  </View>
-
-                  {/* Line 3 */}
-                  <View className={`h-0.5 flex-1 ${
-                    currentStatusId === 5 ? "bg-rose-500" : currentStatusId === 4 ? "bg-emerald-500" : "bg-gray-200"
-                  }`} />
-
-                  {/* Step 4: Final State (Delivered / Cancelled) */}
-                  <View className="items-center flex">
-                    {currentStatusId === 5 ? (
-                      <>
-                        <View className="w-8 h-8 rounded-full items-center justify-center bg-rose-500">
-                          <XCircle size={16} color="#ffffff" />
-                        </View>
-                        <Text className="text-[9px] font-bold mt-1 text-rose-700 text-center">
-                          ملغى
-                        </Text>
-                      </>
-                    ) : (
-                      <>
-                        <View className={`w-8 h-8 rounded-full items-center justify-center ${
-                          currentStatusId === 4 ? "bg-emerald-500" : "bg-gray-200"
-                        }`}>
-                          <CheckCircle2 size={16} color={currentStatusId === 4 ? "#ffffff" : "#a0aec0"} />
-                        </View>
-                        <Text className={`text-[9px] font-bold mt-1 text-center ${
-                          currentStatusId === 4 ? "text-emerald-700" : "text-gray-400"
-                        }`}>
-                          تم التوصيل
-                        </Text>
-                      </>
-                    )}
-                  </View>
+                  {isEditMode && (
+                    <TouchableOpacity
+                      onPress={handleResetEdits}
+                      className="bg-gray-100 px-3 py-1.5 rounded-xl flex-row-reverse items-center gap-1"
+                    >
+                      <RotateCcw size={13} color="#4b5563" />
+                      <Text className="text-gray-700 font-bold text-xs">إعادة ضبط</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
-                {/* Items List */}
-                <Text className="text-right font-black text-gray-900 text-base mb-4">
-                  المنتجات المشتراة
-                </Text>
-
-                {orderDetails.items?.map((item, idx) => (
-                  <View
-                    key={`${item.productId}-${item.productImageId}-${idx}`}
-                    className="flex-row-reverse items-center justify-between py-3 border-b border-gray-100"
-                  >
-                    {/* Item Image */}
-                    <View className="w-16 h-16 bg-gray-50 rounded-xl overflow-hidden border border-gray-100">
-                      {item.imageUrl ? (
-                        <Image
-                          source={{ uri: item.imageUrl }}
-                          style={{ width: "100%", height: "100%" }}
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <View className="w-full h-full items-center justify-center">
-                          <StyledPackage size={20} className="text-gray-400" />
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Description */}
-                    <View className="flex-1 items-end pr-4 pl-2">
-                      <Text className="font-bold text-gray-900 text-sm text-right" numberOfLines={1}>
-                        {item.productName}
-                      </Text>
-                      <Text className="text-gray-400 text-[10px] font-semibold mt-0.5">
-                        الكمية المطلوبة: {item.quantity}
-                      </Text>
-                      <Text className="text-[#0F4C92] text-xs font-extrabold mt-1">
-                        {item.unitPrice.toLocaleString("en-US")} {item.currencyId === 1 ? "ريال يمني" : "ريال سعودي"}
-                      </Text>
-                    </View>
-
-                    {/* Total */}
-                    <View className="items-start">
-                      <Text className="text-gray-900 font-extrabold text-sm">
-                        {(item.unitPrice * item.quantity).toLocaleString("en-US")}
-                      </Text>
-                      <Text className="text-gray-400 text-[9px] font-bold">
-                        {item.currencyId === 1 ? "ريال يمني" : "ريال سعودي"}
-                      </Text>
-                    </View>
+                {/* Edit Mode Notice Banner */}
+                {isEditMode && (
+                  <View className="bg-amber-50 border border-amber-200 rounded-2xl p-3 mb-4 items-end">
+                    <Text className="text-amber-900 font-bold text-xs text-right">
+                      يمكنك تخفيض كميات المنتجات أو وضعها (0) لإرجاعها.
+                    </Text>
+                    <Text className="text-amber-700 text-[10px] font-semibold text-right mt-0.5">
+                      تنبيه: قواعد النظام لا تسمح بزيادة الكمية عن الطلب الأصلي.
+                    </Text>
                   </View>
-                ))}
+                )}
+
+                {/* Items List */}
+                {orderDetails.items?.map((item, idx) => {
+                  const currentQty = editedQuantities[item.productImageId] ?? item.quantity;
+                  const isReduced = currentQty < item.quantity && currentQty > 0;
+                  const isReturned = currentQty === 0;
+
+                  return (
+                    <View
+                      key={`${item.productId}-${item.productImageId}-${idx}`}
+                      className="py-3 border-b border-gray-100"
+                    >
+                      <View className="flex-row-reverse items-center justify-between">
+                        {/* Item Image */}
+                        <View className="w-16 h-16 bg-gray-50 rounded-xl overflow-hidden border border-gray-100 shrink-0">
+                          {item.imageUrl ? (
+                            <Image
+                              source={{ uri: item.imageUrl }}
+                              className="w-full h-full"
+                              style={{ width: "100%", height: "100%" }}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <View className="w-full h-full items-center justify-center">
+                              <StyledPackage size={20} className="text-gray-400" />
+                            </View>
+                          )}
+                        </View>
+
+                        {/* Description */}
+                        <View className="flex-1 items-end pr-4 pl-2">
+                          <Text className="font-bold text-gray-900 text-sm text-right" numberOfLines={1}>
+                            {item.productName}
+                          </Text>
+                          
+                          {isEditMode ? (
+                            <View className="flex-row-reverse items-center gap-1.5 mt-0.5">
+                              <Text className="text-gray-400 text-[10px] font-semibold">
+                                الأصلي: {item.quantity}
+                              </Text>
+                              {isReturned ? (
+                                <Text className="text-rose-600 text-[10px] font-bold">
+                                  (مرجع بالكامل)
+                                </Text>
+                              ) : isReduced ? (
+                                <Text className="text-amber-600 text-[10px] font-bold">
+                                  (تخفيض إلى {currentQty})
+                                </Text>
+                              ) : null}
+                            </View>
+                          ) : (
+                            <Text className="text-gray-400 text-[10px] font-semibold mt-0.5">
+                              الكمية المطلوبة: {item.quantity}
+                            </Text>
+                          )}
+
+                          <Text className="text-[#0F4C92] text-xs font-extrabold mt-1">
+                            {item.unitPrice.toLocaleString("en-US")} {item.currencyId === 1 ? "ريال يمني" : "ريال سعودي"}
+                          </Text>
+                        </View>
+
+                        {/* Quantity Controls in Edit Mode / Total Amount in View Mode */}
+                        {isEditMode ? (
+                          <View className="items-center bg-gray-100 rounded-xl p-1 flex-row gap-2">
+                            {/* Decrease Button */}
+                            <TouchableOpacity
+                              onPress={() => handleDecreaseQty(item.productImageId)}
+                              disabled={currentQty === 0}
+                              className={`w-7 h-7 rounded-lg items-center justify-center shadow-xs ${
+                                currentQty === 0
+                                  ? "bg-gray-200 opacity-40"
+                                  : "bg-white active:bg-gray-200"
+                              }`}
+                            >
+                              <Minus size={14} color={currentQty === 0 ? "#9ca3af" : "#dc2626"} />
+                            </TouchableOpacity>
+
+                            {/* Quantity Display */}
+                            <Text className={`font-black text-sm px-1.5 ${isReturned ? "text-rose-600" : "text-gray-900"}`}>
+                              {currentQty}
+                            </Text>
+
+                            {/* Increase Button */}
+                            <TouchableOpacity
+                              onPress={() => handleIncreaseQty(item.productImageId, item.quantity)}
+                              disabled={currentQty >= item.quantity}
+                              className={`w-7 h-7 rounded-lg items-center justify-center shadow-xs ${
+                                currentQty >= item.quantity
+                                  ? "bg-gray-200 opacity-40"
+                                  : "bg-white active:bg-gray-200"
+                              }`}
+                            >
+                              <Plus size={14} color={currentQty >= item.quantity ? "#9ca3af" : "#16a34a"} />
+                            </TouchableOpacity>
+                          </View>
+                        ) : (
+                          <View className="items-start">
+                            <Text className="text-gray-900 font-extrabold text-sm">
+                              {(item.unitPrice * item.quantity).toLocaleString("en-US")}
+                            </Text>
+                            <Text className="text-gray-400 text-[9px] font-bold">
+                              {item.currencyId === 1 ? "ريال يمني" : "ريال سعودي"}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
 
                 {/* Amounts Total Summary Box */}
                 <View className="bg-gray-50 rounded-2xl p-4 mt-6 border border-gray-100">
-                  <Text className="text-right font-black text-gray-800 text-sm mb-3">تفاصيل المجموع</Text>
+                  <Text className="text-right font-black text-gray-800 text-sm mb-3">
+                    {isEditMode ? "معاينة المجموع الجديد" : "تفاصيل المجموع"}
+                  </Text>
 
-                  {orderDetails.totalAmountYer > 0 && (
-                    <View className="flex-row-reverse justify-between items-center mb-2">
-                      <Text className="text-gray-500 font-bold text-xs">المجموع بالريال اليمني:</Text>
-                      <Text className="text-gray-900 font-black text-sm">
-                        {orderDetails.totalAmountYer.toLocaleString("en-US")} ر.ي
-                      </Text>
-                    </View>
-                  )}
+                  {isEditMode ? (
+                    <>
+                      {(orderDetails.totalAmountYer > 0 || previewYer > 0) && (
+                        <View className="flex-row-reverse justify-between items-center mb-2">
+                          <Text className="text-gray-500 font-bold text-xs">المجموع بالريال اليمني:</Text>
+                          <View className="flex-row-reverse items-center gap-1.5">
+                            {previewYer !== orderDetails.totalAmountYer && (
+                              <Text className="line-through text-gray-400 text-xs">
+                                {orderDetails.totalAmountYer.toLocaleString("en-US")}
+                              </Text>
+                            )}
+                            <Text className="text-[#0F4C92] font-black text-sm">
+                              {previewYer.toLocaleString("en-US")} ر.ي
+                            </Text>
+                          </View>
+                        </View>
+                      )}
 
-                  {orderDetails.totalAmountSar > 0 && (
-                    <View className="flex-row-reverse justify-between items-center mb-2">
-                      <Text className="text-gray-500 font-bold text-xs">المجموع بالريال السعودي:</Text>
-                      <Text className="text-gray-900 font-black text-sm">
-                        {orderDetails.totalAmountSar.toLocaleString("en-US")} ر.س
-                      </Text>
-                    </View>
+                      {(orderDetails.totalAmountSar > 0 || previewSar > 0) && (
+                        <View className="flex-row-reverse justify-between items-center mb-2">
+                          <Text className="text-gray-500 font-bold text-xs">المجموع بالريال السعودي:</Text>
+                          <View className="flex-row-reverse items-center gap-1.5">
+                            {previewSar !== orderDetails.totalAmountSar && (
+                              <Text className="line-through text-gray-400 text-xs">
+                                {orderDetails.totalAmountSar.toLocaleString("en-US")}
+                              </Text>
+                            )}
+                            <Text className="text-emerald-700 font-black text-sm">
+                              {previewSar.toLocaleString("en-US")} ر.س
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {orderDetails.totalAmountYer > 0 && (
+                        <View className="flex-row-reverse justify-between items-center mb-2">
+                          <Text className="text-gray-500 font-bold text-xs">المجموع بالريال اليمني:</Text>
+                          <Text className="text-gray-900 font-black text-sm">
+                            {orderDetails.totalAmountYer.toLocaleString("en-US")} ر.ي
+                          </Text>
+                        </View>
+                      )}
+
+                      {orderDetails.totalAmountSar > 0 && (
+                        <View className="flex-row-reverse justify-between items-center mb-2">
+                          <Text className="text-gray-500 font-bold text-xs">المجموع بالريال السعودي:</Text>
+                          <Text className="text-gray-900 font-black text-sm">
+                            {orderDetails.totalAmountSar.toLocaleString("en-US")} ر.س
+                          </Text>
+                        </View>
+                      )}
+                    </>
                   )}
                 </View>
               </ScrollView>
@@ -679,41 +827,71 @@ function AdminOrderDetailsModal({
                 style={{ paddingBottom: safeBottom + 12 }}
                 className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-6 pt-3 flex-row-reverse gap-3 items-center"
               >
-                {/* Cancel action if not terminal */}
-                {!isTerminal && (
-                  <TouchableOpacity
-                    onPress={() => handleUpdateStatus(5, "ملغى")}
-                    disabled={updateMutation.isPending}
-                    className="bg-rose-600 rounded-full h-12 px-6 items-center justify-center shadow-xs active:opacity-90 disabled:opacity-50"
-                  >
-                    {updateMutation.isPending ? (
-                      <ActivityIndicator size="small" color="#ffffff" />
-                    ) : (
-                      <Text className="text-white font-bold text-sm">إلغاء الطلب</Text>
-                    )}
-                  </TouchableOpacity>
-                )}
+                {isEditMode ? (
+                  <>
+                    <TouchableOpacity
+                      onPress={() => setIsEditMode(false)}
+                      disabled={editItemsMutation.isPending}
+                      className="bg-gray-100 rounded-full h-12 px-6 items-center justify-center border border-gray-200 active:bg-gray-200"
+                    >
+                      <Text className="text-gray-700 font-bold text-sm">إلغاء</Text>
+                    </TouchableOpacity>
 
-                {/* Primary Transition flow CTA */}
-                {!isTerminal && primaryAction ? (
-                  <TouchableOpacity
-                    onPress={() => handleUpdateStatus(primaryAction!.id, primaryAction!.label)}
-                    disabled={updateMutation.isPending}
-                    className="flex-1 bg-[#0F4C92] rounded-full h-12 items-center justify-center shadow-sm active:opacity-90 disabled:opacity-50"
-                  >
-                    {updateMutation.isPending ? (
-                      <ActivityIndicator size="small" color="#ffffff" />
-                    ) : (
-                      <Text className="text-white font-bold text-sm">{primaryAction.label}</Text>
-                    )}
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={handleSaveEdits}
+                      disabled={editItemsMutation.isPending || !hasChanges}
+                      className={`flex-1 rounded-full h-12 items-center justify-center shadow-sm ${
+                        !hasChanges
+                          ? "bg-gray-300 opacity-60"
+                          : "bg-amber-600 active:bg-amber-700"
+                      }`}
+                    >
+                      {editItemsMutation.isPending ? (
+                        <ActivityIndicator size="small" color="#ffffff" />
+                      ) : (
+                        <Text className="text-white font-bold text-sm">حفظ التعديلات والإرجاع</Text>
+                      )}
+                    </TouchableOpacity>
+                  </>
                 ) : (
-                  // Terminal Status indicator
-                  <View className="flex-1 bg-gray-50 border border-gray-200 rounded-full h-12 items-center justify-center">
-                    <Text className="text-gray-400 font-bold text-xs">
-                      {currentStatusId === 4 ? "تم تسليم هذا الطلب للعميل بنجاح" : "هذا الطلب ملغى بالفعل"}
-                    </Text>
-                  </View>
+                  <>
+                    {/* Cancel action if not terminal */}
+                    {!isTerminal && (
+                      <TouchableOpacity
+                        onPress={() => handleUpdateStatus(5, "ملغى")}
+                        disabled={updateMutation.isPending}
+                        className="bg-rose-600 rounded-full h-12 px-6 items-center justify-center shadow-xs active:opacity-90 disabled:opacity-50"
+                      >
+                        {updateMutation.isPending ? (
+                          <ActivityIndicator size="small" color="#ffffff" />
+                        ) : (
+                          <Text className="text-white font-bold text-sm">إلغاء الطلب</Text>
+                        )}
+                      </TouchableOpacity>
+                    )}
+
+                    {/* Primary Transition flow CTA */}
+                    {!isTerminal && primaryAction ? (
+                      <TouchableOpacity
+                        onPress={() => handleUpdateStatus(primaryAction!.id, primaryAction!.label)}
+                        disabled={updateMutation.isPending}
+                        className="flex-1 bg-[#0F4C92] rounded-full h-12 items-center justify-center shadow-sm active:opacity-90 disabled:opacity-50"
+                      >
+                        {updateMutation.isPending ? (
+                          <ActivityIndicator size="small" color="#ffffff" />
+                        ) : (
+                          <Text className="text-white font-bold text-sm">{primaryAction.label}</Text>
+                        )}
+                      </TouchableOpacity>
+                    ) : (
+                      // Terminal Status indicator
+                      <View className="flex-1 bg-gray-50 border border-gray-200 rounded-full h-12 items-center justify-center">
+                        <Text className="text-gray-400 font-bold text-xs">
+                          {currentStatusId === 4 ? "تم تسليم هذا الطلب للعميل بنجاح" : "هذا الطلب ملغى بالفعل"}
+                        </Text>
+                      </View>
+                    )}
+                  </>
                 )}
               </View>
             </>

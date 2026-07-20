@@ -485,12 +485,13 @@ function OrderDetailsModal({
                     className="flex-row-reverse items-center justify-between py-3 border-b border-gray-100"
                   >
                     {/* Item Thumbnail */}
-                    <View className="w-16 h-16 bg-gray-50 rounded-xl overflow-hidden border border-gray-100">
+                    <View className="w-16 h-16 bg-gray-50 rounded-xl overflow-hidden border border-gray-100 shrink-0">
                       {item.imageUrl ? (
                         <Image
-                           source={{ uri: item.imageUrl }}
-                           style={{ width: "100%", height: "100%" }}
-                           resizeMode="cover"
+                          source={{ uri: item.imageUrl }}
+                          className="w-full h-full"
+                          style={{ width: "100%", height: "100%" }}
+                          resizeMode="cover"
                         />
                       ) : (
                         <View className="w-full h-full items-center justify-center">

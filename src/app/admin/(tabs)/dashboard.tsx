@@ -1,12 +1,10 @@
 import type { JSX } from "react";
-import { useMemo, useEffect } from "react";
+import { useEffect } from "react";
 import {
   View,
   Text,
   ScrollView,
-  ActivityIndicator,
   TouchableOpacity,
-  Alert,
 } from "react-native";
 import {
   TrendingUp,
@@ -20,9 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useAuth } from "../../../hooks/useAuth";
-import { useAdminOrdersQuery } from "../../../hooks/useAdminOrders";
-import { useProductsQuery } from "../../../hooks/useProducts";
-import { useRepresentativesQuery } from "../../../hooks/useRepresentatives";
+import { useAdminDashboardQuery } from "../../../hooks/useAdminDashboard";
 import DashboardSkeleton from "../../../components/DashboardSkeleton";
 
 export default function AdminDashboardScreen(): JSX.Element {
@@ -36,82 +32,21 @@ export default function AdminDashboardScreen(): JSX.Element {
     }
   }, [user, isAdmin]);
 
-  // Query Hooks
-  const { data: orders = [], isLoading: isLoadingOrders, refetch: refetchOrders, isRefetching: isRefetchingOrders } = useAdminOrdersQuery();
-  const { data: products = [], isLoading: isLoadingProducts, refetch: refetchProducts, isRefetching: isRefetchingProducts } = useProductsQuery({});
-  const { data: representatives = [], isLoading: isLoadingReps, refetch: refetchReps, isRefetching: isRefetchingReps } = useRepresentativesQuery();
+  // Single Admin Dashboard Query
+  const {
+    data: stats,
+    isLoading,
+    refetch,
+    isRefetching,
+  } = useAdminDashboardQuery();
 
   const handleRefresh = async () => {
-    await Promise.all([refetchOrders(), refetchProducts(), refetchReps()]);
+    await refetch();
   };
-
-  const isRefreshing = isRefetchingOrders || isRefetchingProducts || isRefetchingReps;
-  const isLoading = isLoadingOrders || isLoadingProducts || isLoadingReps;
-
-  // Calculate Statistics
-  const stats = useMemo(() => {
-    const ordersList = Array.isArray(orders) ? orders : [];
-    const productsList = Array.isArray(products) ? products : [];
-    const repsList = Array.isArray(representatives) ? representatives : [];
-
-    // Sales calculations (only for Delivered status - ID: 4)
-    let totalSalesYer = 0;
-    let totalSalesSar = 0;
-    let pendingOrdersCount = 0; // ID: 1 (Review) or ID: 2 (Processing)
-    let processingOrdersCount = 0;
-    let shippedOrdersCount = 0;
-    let deliveredOrdersCount = 0;
-    let cancelledOrdersCount = 0;
-
-    ordersList.forEach((order) => {
-      if (order.orderStatusId === 4) {
-        totalSalesYer += order.totalAmountYer || 0;
-        totalSalesSar += order.totalAmountSar || 0;
-        deliveredOrdersCount++;
-      } else if (order.orderStatusId === 1) {
-        pendingOrdersCount++;
-      } else if (order.orderStatusId === 2) {
-        processingOrdersCount++;
-      } else if (order.orderStatusId === 3) {
-        shippedOrdersCount++;
-      } else if (order.orderStatusId === 5) {
-        cancelledOrdersCount++;
-      }
-    });
-
-    // Products calculations
-    const totalProducts = productsList.length;
-    let outOfStockCount = 0;
-    productsList.forEach((product) => {
-      const totalQty = product.images?.reduce((sum, img) => sum + (img.quantityInStock || 0), 0) || 0;
-      if (totalQty === 0) {
-        outOfStockCount++;
-      }
-    });
-
-    // Representatives calculations
-    const totalReps = repsList.length;
-    const activeReps = repsList.filter((r) => r.isActive).length;
-
-    return {
-      totalSalesYer,
-      totalSalesSar,
-      totalOrders: ordersList.length,
-      pendingOrders: pendingOrdersCount,
-      processingOrders: processingOrdersCount,
-      shippedOrders: shippedOrdersCount,
-      deliveredOrders: deliveredOrdersCount,
-      cancelledOrders: cancelledOrdersCount,
-      totalProducts,
-      outOfStock: outOfStockCount,
-      totalReps,
-      activeReps,
-    };
-  }, [orders, products, representatives]);
 
   const safeTop = insets.top > 0 ? insets.top : 47;
 
-  if (isLoading && !isRefreshing) {
+  if (isLoading && !isRefetching) {
     return (
       <View className="flex-1 bg-[#f8fafd]">
         <StatusBar style="dark" />
@@ -125,6 +60,19 @@ export default function AdminDashboardScreen(): JSX.Element {
       </View>
     );
   }
+
+  const totalSalesYer = stats?.totalSalesYer ?? 0;
+  const totalSalesSar = stats?.totalSalesSar ?? 0;
+  const totalOrders = stats?.totalOrders ?? 0;
+  const pendingOrdersCount = stats?.pendingOrdersCount ?? 0;
+  const processingOrdersCount = stats?.processingOrdersCount ?? 0;
+  const shippedOrdersCount = stats?.shippedOrdersCount ?? 0;
+  const deliveredOrdersCount = stats?.deliveredOrdersCount ?? 0;
+  const cancelledOrdersCount = stats?.cancelledOrdersCount ?? 0;
+  const totalActiveProducts = stats?.totalActiveProducts ?? 0;
+  const outOfStockProductsCount = stats?.outOfStockProductsCount ?? 0;
+  const totalRepresentatives = stats?.totalRepresentatives ?? 0;
+  const activeRepresentatives = stats?.activeRepresentatives ?? 0;
 
   return (
     <View className="flex-1 bg-[#f8fafd]">
@@ -148,9 +96,9 @@ export default function AdminDashboardScreen(): JSX.Element {
         {/* Refresh button or status */}
         <View className="flex-row-reverse justify-between items-center mb-4">
           <Text className="text-sm font-bold text-gray-800">إحصائيات النظام</Text>
-          <TouchableOpacity onPress={handleRefresh} disabled={isRefreshing}>
+          <TouchableOpacity onPress={handleRefresh} disabled={isRefetching}>
             <Text className="text-xs font-bold text-[#0F4C92]">
-              {isRefreshing ? "جاري التحديث..." : "تحديث البيانات"}
+              {isRefetching ? "جاري التحديث..." : "تحديث البيانات"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -164,7 +112,7 @@ export default function AdminDashboardScreen(): JSX.Element {
             </View>
             <Text className="text-[10px] font-bold text-gray-400">إجمالي المبيعات (ريال يمني)</Text>
             <Text className="text-sm font-black text-gray-800 mt-1 text-right" numberOfLines={1}>
-              {stats.totalSalesYer.toLocaleString("en-US")}
+              {totalSalesYer.toLocaleString("en-US")}
             </Text>
           </View>
 
@@ -175,7 +123,7 @@ export default function AdminDashboardScreen(): JSX.Element {
             </View>
             <Text className="text-[10px] font-bold text-gray-400">إجمالي المبيعات (ريال سعودي)</Text>
             <Text className="text-sm font-black text-gray-800 mt-1 text-right" numberOfLines={1}>
-              {stats.totalSalesSar.toLocaleString("en-US")}
+              {totalSalesSar.toLocaleString("en-US")}
             </Text>
           </View>
         </View>
@@ -192,7 +140,7 @@ export default function AdminDashboardScreen(): JSX.Element {
               </View>
               <Text className="text-xs font-bold text-gray-700">إجمالي الطلبات</Text>
             </View>
-            <Text className="text-xs font-extrabold text-gray-900">{stats.totalOrders}</Text>
+            <Text className="text-xs font-extrabold text-gray-900">{totalOrders}</Text>
           </View>
 
           <View className="h-[1px] bg-gray-50" />
@@ -202,31 +150,31 @@ export default function AdminDashboardScreen(): JSX.Element {
             {/* Pending Review */}
             <View className="w-[48%] bg-gray-50/50 p-2.5 rounded-xl border border-gray-100/50 items-end">
               <Text className="text-[9px] font-bold text-gray-400">قيد المراجعة</Text>
-              <Text className="text-sm font-black text-amber-600 mt-0.5">{stats.pendingOrders}</Text>
+              <Text className="text-sm font-black text-amber-600 mt-0.5">{pendingOrdersCount}</Text>
             </View>
 
             {/* Processing */}
             <View className="w-[48%] bg-gray-50/50 p-2.5 rounded-xl border border-gray-100/50 items-end">
               <Text className="text-[9px] font-bold text-gray-400">قيد المعالجة</Text>
-              <Text className="text-sm font-black text-[#0F4C92] mt-0.5">{stats.processingOrders}</Text>
+              <Text className="text-sm font-black text-[#0F4C92] mt-0.5">{processingOrdersCount}</Text>
             </View>
 
             {/* Shipped */}
             <View className="w-[48%] bg-gray-50/50 p-2.5 rounded-xl border border-gray-100/50 items-end">
               <Text className="text-[9px] font-bold text-gray-400">تم الشحن</Text>
-              <Text className="text-sm font-black text-blue-500 mt-0.5">{stats.shippedOrders}</Text>
+              <Text className="text-sm font-black text-blue-500 mt-0.5">{shippedOrdersCount}</Text>
             </View>
 
             {/* Delivered */}
             <View className="w-[48%] bg-gray-50/50 p-2.5 rounded-xl border border-gray-100/50 items-end">
               <Text className="text-[9px] font-bold text-gray-400">تم التوصيل</Text>
-              <Text className="text-sm font-black text-emerald-600 mt-0.5">{stats.deliveredOrders}</Text>
+              <Text className="text-sm font-black text-emerald-600 mt-0.5">{deliveredOrdersCount}</Text>
             </View>
 
             {/* Cancelled */}
             <View className="w-[48%] bg-gray-50/50 p-2.5 rounded-xl border border-gray-100/50 items-end">
               <Text className="text-[9px] font-bold text-gray-400">ملغى</Text>
-              <Text className="text-sm font-black text-red-500 mt-0.5">{stats.cancelledOrders}</Text>
+              <Text className="text-sm font-black text-red-500 mt-0.5">{cancelledOrdersCount}</Text>
             </View>
           </View>
         </View>
@@ -236,7 +184,7 @@ export default function AdminDashboardScreen(): JSX.Element {
 
         {/* Inventory & Representatives Grid */}
         <View className="bg-white rounded-2xl p-4 border border-gray-100 shadow-xs gap-3">
-          {/* Total Products */}
+          {/* Total Active Products */}
           <View className="flex-row-reverse items-center justify-between">
             <View className="flex-row-reverse items-center gap-2">
               <View className="w-7 h-7 rounded-lg bg-blue-50 items-center justify-center">
@@ -244,12 +192,12 @@ export default function AdminDashboardScreen(): JSX.Element {
               </View>
               <Text className="text-xs font-bold text-gray-700">إجمالي المنتجات المعروضة</Text>
             </View>
-            <Text className="text-xs font-extrabold text-gray-900">{stats.totalProducts}</Text>
+            <Text className="text-xs font-extrabold text-gray-900">{totalActiveProducts}</Text>
           </View>
 
           <View className="h-[1px] bg-gray-50" />
 
-          {/* Out of Stock */}
+          {/* Out of Stock Products */}
           <View className="flex-row-reverse items-center justify-between">
             <View className="flex-row-reverse items-center gap-2">
               <View className="w-7 h-7 rounded-lg bg-amber-50 items-center justify-center">
@@ -257,12 +205,12 @@ export default function AdminDashboardScreen(): JSX.Element {
               </View>
               <Text className="text-xs font-bold text-gray-700">منتجات نفد مخزونها</Text>
             </View>
-            <Text className="text-xs font-extrabold text-amber-600">{stats.outOfStock}</Text>
+            <Text className="text-xs font-extrabold text-amber-600">{outOfStockProductsCount}</Text>
           </View>
 
           <View className="h-[1px] bg-gray-50" />
 
-          {/* Total Representatives */}
+          {/* Total & Active Representatives */}
           <View className="flex-row-reverse items-center justify-between">
             <View className="flex-row-reverse items-center gap-2">
               <View className="w-7 h-7 rounded-lg bg-blue-50 items-center justify-center">
@@ -271,7 +219,7 @@ export default function AdminDashboardScreen(): JSX.Element {
               <Text className="text-xs font-bold text-gray-700">إجمالي المندوبين</Text>
             </View>
             <Text className="text-xs font-extrabold text-gray-900">
-              {stats.totalReps} ({stats.activeReps} نشط)
+              {totalRepresentatives} ({activeRepresentatives} نشط)
             </Text>
           </View>
         </View>

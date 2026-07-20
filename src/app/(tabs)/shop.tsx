@@ -12,7 +12,7 @@ import {
   Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useFocusEffect, router } from "expo-router";
+import { useFocusEffect, router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { withUniwind } from "uniwind";
 import {
@@ -21,9 +21,16 @@ import {
   Package,
   AlertCircle,
   Tag,
+  Plus,
+  Star,
 } from "lucide-react-native";
 
-import { useInfiniteProductsQuery, useCurrenciesQuery, useGetProductDetails } from "../../hooks/useProducts";
+import {
+  useInfiniteProductsQuery,
+  useCurrenciesQuery,
+  useGetProductDetails,
+  useProductsQuery,
+} from "../../hooks/useProducts";
 import { useCategoriesQuery } from "../../hooks/useCategories";
 import { useCartStore } from "../../store/cartStore";
 
@@ -34,28 +41,40 @@ const StyledPackage = withUniwind(Package);
 const StyledAlertCircle = withUniwind(AlertCircle);
 const StyledTag = withUniwind(Tag);
 
-// Loading Skeleton Component for Product Cards (matching horizontal layout)
+// Loading Skeleton Component for Product Cards (matching 2-column grid layout)
 const ProductCardSkeleton = (): JSX.Element => (
-  <View className="w-full bg-white rounded-2xl p-3.5 border border-gray-100/80 flex-row-reverse items-center justify-between mb-2">
-    <View className="flex-row-reverse items-center flex-1">
-      <View className="w-16 h-16 rounded-xl bg-gray-100" />
-      <View className="items-end flex-1 pr-3 gap-1.5">
-        <View className="w-3/4 h-3.5 bg-gray-100 rounded" />
-        <View className="w-1/2 h-3 bg-gray-100 rounded" />
-      </View>
-    </View>
-    <View className="w-16 h-8 bg-gray-100 rounded-xl" />
+  <View className="w-[48%] bg-white rounded-3xl p-3 border border-gray-100 items-end justify-between gap-2 mb-3">
+    <View className="w-full h-36 rounded-2xl bg-gray-100" />
+    <View className="w-3/4 h-3 bg-gray-100 rounded mt-1" />
+    <View className="w-1/2 h-3 bg-gray-100 rounded" />
   </View>
 );
 
 export default function ShopScreen(): JSX.Element {
   const insets = useSafeAreaInsets();
   const getProductDetails = useGetProductDetails();
+  const params = useLocalSearchParams<{ categoryId?: string }>();
 
   // Search and Filter States
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+
+  // Sync selectedCategoryId with route param when navigated from Home screen or direct URL
+  useEffect(() => {
+    if (params.categoryId !== undefined) {
+      if (params.categoryId === "" || params.categoryId === null) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSelectedCategoryId(null);
+      } else {
+        const catId = parseInt(params.categoryId, 10);
+        if (!isNaN(catId)) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setSelectedCategoryId(catId);
+        }
+      }
+    }
+  }, [params.categoryId]);
 
   // Price Sort State: 'none' | 'asc' | 'desc'
   const [priceSort, setPriceSort] = useState<"none" | "asc" | "desc">("none");
@@ -71,6 +90,18 @@ export default function ShopScreen(): JSX.Element {
   // API Queries
   const { data: categories = [] } = useCategoriesQuery();
   const { data: currencies = [] } = useCurrenciesQuery();
+  const { data: allDetailedProducts = [] } = useProductsQuery();
+
+  // Create lookup map for product category names
+  const categoryMap = useMemo(() => {
+    const map: Record<number, string> = {};
+    allDetailedProducts.forEach((p) => {
+      if (p.id && p.categoryName) {
+        map[p.id] = p.categoryName;
+      }
+    });
+    return map;
+  }, [allDetailedProducts]);
 
   const {
     data,
@@ -194,7 +225,7 @@ export default function ShopScreen(): JSX.Element {
       </View>
 
       {/* Search Input Box */}
-      <View className="px-6 pt-3 pb-2 bg-[#f8fafd]">
+      <View className="px-6 pt-3 pb-2 bg-white">
         <View className="relative justify-center">
           <TextInput
             value={searchQuery}
@@ -208,7 +239,7 @@ export default function ShopScreen(): JSX.Element {
       </View>
 
       {/* Category Horizontal Scrollbar */}
-      <View className="border-b border-gray-100 bg-[#f8fafd] pb-3">
+      <View className="border-b border-gray-100 bg-white pb-3">
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -285,8 +316,11 @@ export default function ShopScreen(): JSX.Element {
       <View className="flex-1 bg-white">
         <StatusBar style="dark" />
         {renderFixedHeader()}
-        <View className="flex-1 bg-[#f8fafd] px-4 pt-3">
+        <View className="flex-1 bg-white px-4 pt-3">
           <FlatList
+            key="grid-skeleton"
+            numColumns={2}
+            columnWrapperStyle={{ flexDirection: "row-reverse", justifyContent: "space-between" }}
             data={Array.from({ length: 6 })}
             keyExtractor={(_, index) => index.toString()}
             renderItem={() => <ProductCardSkeleton />}
@@ -299,7 +333,7 @@ export default function ShopScreen(): JSX.Element {
   // Error state
   if (isError) {
     return (
-      <View className="flex-1 bg-[#f8fafd] justify-center items-center px-6">
+      <View className="flex-1 bg-white justify-center items-center px-6">
         <StatusBar style="dark" />
         <StyledAlertCircle size={56} className="text-red-500 mb-4" />
         <Text className="text-red-600 font-black text-lg mb-2 text-center">
@@ -323,74 +357,85 @@ export default function ShopScreen(): JSX.Element {
       <StatusBar style="dark" />
       {renderFixedHeader()}
 
-      <View className="flex-1 bg-[#f8fafd]">
+      <View className="flex-1 bg-white">
         <FlatList
+          key="grid-products"
           data={sortedProducts}
           keyExtractor={(item) => item.id.toString()}
+          numColumns={2}
+          columnWrapperStyle={{ flexDirection: "row-reverse", justifyContent: "space-between" }}
           contentContainerStyle={{
             paddingHorizontal: 16,
             paddingTop: 12,
             paddingBottom: insets.bottom + 90, // Spacing for tab-bar
-            gap: 10,
+            gap: 12,
           }}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              onPress={() => router.push(`/product-details?id=${item.id}` as any)}
-              activeOpacity={0.95}
-              className="bg-white rounded-2xl p-3 flex-row-reverse justify-between items-stretch border border-gray-100/80"
-              style={{
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.03,
-                shadowRadius: 5,
-                elevation: 1,
-              }}
-            >
-              {/* Right Side: Product Image & Details (RTL order) */}
-              <View className="flex-row-reverse items-center flex-1">
-                {/* Product Image */}
-                {item.primaryImageUrl ? (
-                  <Image
-                    source={{ uri: item.primaryImageUrl }}
-                    className="w-16 h-16 rounded-xl bg-gray-50"
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View className="w-16 h-16 rounded-xl bg-gray-100 items-center justify-center">
-                    <StyledPackage size={20} className="text-gray-400" />
-                  </View>
-                )}
+          renderItem={({ item }) => {
+            const catName =
+              item.categoryName ||
+              (item.categoryId
+                ? categories.find((c) => c.id === item.categoryId)?.name
+                : null) ||
+              categoryMap[item.id] ||
+              (selectedCategoryId
+                ? categories.find((c) => c.id === selectedCategoryId)?.name
+                : null);
 
-                {/* Product Text details */}
-                <View className="items-end flex-1 pr-3 pl-1">
-                  <Text
-                    className="font-extrabold text-gray-900 text-sm mb-1 text-right"
-                    numberOfLines={2}
-                  >
-                    {item.name}
-                  </Text>
-
-                  <Text className="font-extrabold text-[#0F4C92] text-xs text-right mt-1">
-                    {item.price} {getCurrencySymbol(item.currencyId)}
-                  </Text>
+            return (
+              <TouchableOpacity
+                onPress={() => router.push(`/product-details?id=${item.id}` as any)}
+                activeOpacity={0.92}
+                style={{ width: "48%" }}
+                className="bg-white rounded-3xl border border-gray-100/90 shadow-sm overflow-hidden justify-between mb-3"
+              >
+                {/* Full-width Image Bleed */}
+                <View className="w-full h-36 bg-gray-100 relative">
+                  {item.primaryImageUrl ? (
+                    <Image
+                      source={{ uri: item.primaryImageUrl }}
+                      className="w-full h-full"
+                      style={{ width: "100%", height: "100%" }}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View className="w-full h-full items-center justify-center">
+                      <StyledPackage size={22} className="text-gray-400" />
+                    </View>
+                  )}
                 </View>
-              </View>
 
-              {/* Left Side: Add to Cart Action */}
-              <View className="justify-center pl-0.5">
-                <TouchableOpacity
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    handleAddToCart(item);
-                  }}
-                  activeOpacity={0.85}
-                  className="bg-[#0F4C92] px-3.5 py-2 rounded-xl items-center justify-center"
-                >
-                  <Text className="text-white font-extrabold text-[10px]">أضف للسلة</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          )}
+                {/* Card Content */}
+                <View className="p-3">
+                  {/* Details & Action button row */}
+                  <View className="flex-row-reverse justify-between items-end w-full">
+                    <View className="items-end flex-1 pl-1">
+                      <Text
+                        className="font-extrabold text-gray-900 text-xs text-right mb-0.5 w-full"
+                        numberOfLines={1}
+                      >
+                        {item.name}
+                      </Text>
+                      <Text className="font-black text-[#0F4C92] text-xs text-right">
+                        {item.price} {getCurrencySymbol(item.currencyId)}
+                      </Text>
+                    </View>
+
+                    {/* Blue Circular Plus Action Button for Add to Cart */}
+                    <TouchableOpacity
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleAddToCart(item);
+                      }}
+                      activeOpacity={0.8}
+                      className="w-8 h-8 rounded-full bg-[#0F4C92] items-center justify-center shadow-xs active:opacity-80"
+                    >
+                      <Plus size={16} color="#ffffff" strokeWidth={2.5} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          }}
           ListEmptyComponent={
             <View className="flex-1 justify-center items-center py-20 px-6">
               <StyledPackage size={56} className="text-gray-300 mb-4" />

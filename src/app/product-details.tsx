@@ -355,11 +355,19 @@ export default function ProductDetailsScreen(): JSX.Element {
                 {product.name}
               </Text>
               <View className="flex-row-reverse items-center gap-1.5 mt-1.5">
-                <View className="bg-slate-100 px-2 py-0.5 rounded-md">
+                <TouchableOpacity
+                  onPress={() => {
+                    if (product.categoryId) {
+                      router.push({ pathname: "/shop", params: { categoryId: product.categoryId.toString() } } as any);
+                    }
+                  }}
+                  activeOpacity={0.7}
+                  className="bg-slate-100 px-2 py-0.5 rounded-md active:bg-slate-200"
+                >
                   <Text className="text-[10px] font-bold text-slate-500 text-right">
                     الفئة: {product.categoryName}
                   </Text>
-                </View>
+                </TouchableOpacity>
               </View>
             </View>
             <View className="bg-[#f0f7ff] border border-blue-50 px-4 py-2.5 rounded-2xl">

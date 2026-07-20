@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminOrderService } from "../services/admin-order.service";
-import { AdminOrderSummary, OrderResponseData } from "../types";
+import { AdminOrderSummary, OrderResponseData, EditOrderItemInput } from "../types";
 
 /**
  * Hook to retrieve all user orders for admin.
@@ -41,3 +41,21 @@ export const useAdminUpdateOrderStatusMutation = () => {
     },
   });
 };
+
+/**
+ * Hook to edit order items / process returns by admin.
+ */
+export const useAdminEditOrderItemsMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<OrderResponseData, Error, { id: number; items: EditOrderItemInput[] }>({
+    mutationFn: ({ id, items }) => adminOrderService.editAdminOrderItems(id, items),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-order", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["order", variables.id] });
+    },
+  });
+};
+
