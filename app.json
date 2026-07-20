@@ -8,9 +8,11 @@
     "scheme": "bestpricestore",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.devilaxs.bestpricestore"
     },
     "android": {
+      "package": "com.devilaxs.bestpricestore",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -33,6 +35,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2c36acf9-576d-43a3-aaac-e830045e0a6c"
+      }
     }
   }
 }
