@@ -5,11 +5,13 @@ This document describes the API endpoints for listing user orders, viewing order
 ---
 
 ## Base URL
+
 All URLs are relative to the application's base path, for example: `http://localhost:5194`
 
 ---
 
 ## 1. Get Order Statuses
+
 Returns all available order status definitions. The frontend should call this endpoint to match `orderStatusId` integer values (e.g. `1`, `5`) with their display names (e.g. `Pending`, `Cancelled`).
 
 - **URL:** `/api/OrderStatuses`
@@ -17,6 +19,7 @@ Returns all available order status definitions. The frontend should call this en
 - **Authentication Required:** No (Public)
 
 ### Response (200 OK)
+
 ```json
 {
   "statusCode": 200,
@@ -50,6 +53,7 @@ Returns all available order status definitions. The frontend should call this en
 ---
 
 ## 2. List My Orders
+
 Retrieves a summary list of all orders placed by the currently logged-in user. The results are ordered by creation date descending.
 
 - **URL:** `/api/Orders`
@@ -59,6 +63,7 @@ Retrieves a summary list of all orders placed by the currently logged-in user. T
   - `Authorization: Bearer <your_jwt_token>`
 
 ### Response (200 OK)
+
 ```json
 {
   "statusCode": 200,
@@ -77,15 +82,17 @@ Retrieves a summary list of all orders placed by the currently logged-in user. T
 ```
 
 #### Field Specifications (Order Summary)
-*   `id` (integer): The unique order identifier.
-*   `orderStatusId` (integer): Matches the ID of the order status. Call `/api/OrderStatuses` to map this to its text name.
-*   `totalAmountYer` (double): The sum of all items in this order priced in Yemeni Rial.
-*   `totalAmountSar` (double): The sum of all items in this order priced in Saudi Rial.
-*   `createdAt` (string/datetime): Timestamp when the order was placed.
+
+- `id` (integer): The unique order identifier.
+- `orderStatusId` (integer): Matches the ID of the order status. Call `/api/OrderStatuses` to map this to its text name.
+- `totalAmountYer` (double): The sum of all items in this order priced in Yemeni Rial.
+- `totalAmountSar` (double): The sum of all items in this order priced in Saudi Rial.
+- `createdAt` (string/datetime): Timestamp when the order was placed.
 
 ---
 
 ## 3. Get Order Details
+
 Retrieves complete product details for a specific order. Call this when a user clicks on an order from the list.
 
 - **URL:** `/api/Orders/{id}`
@@ -95,6 +102,7 @@ Retrieves complete product details for a specific order. Call this when a user c
   - `Authorization: Bearer <your_jwt_token>`
 
 ### Response (200 OK)
+
 ```json
 {
   "statusCode": 200,
@@ -134,31 +142,32 @@ Retrieves complete product details for a specific order. Call this when a user c
 ```
 
 #### Field Specifications (Order Item Details)
-*   `items[].productId` (integer): ID of the parent product.
-*   `items[].productName` (string): Name of the product.
-*   `items[].productImageId` (integer): ID of the specific image/variation purchased.
-*   `items[].imageUrl` (string): Image URL for the variation.
-*   `items[].quantity` (integer): Quantity purchased.
-*   `items[].unitPrice` (double): Single item unit price.
-*   `items[].totalAmount` (double): Item total (`unitPrice * quantity`).
-*   `items[].currencyId` (integer): Currency ID of the product price (`1` = YER, `2` = SAR).
+
+- `items[].productId` (integer): ID of the parent product.
+- `items[].productName` (string): Name of the product.
+- `items[].productImageId` (integer): ID of the specific image/variation purchased.
+- `items[].imageUrl` (string): Image URL for the variation.
+- `items[].quantity` (integer): Quantity purchased.
+- `items[].unitPrice` (double): Single item unit price.
+- `items[].totalAmount` (double): Item total (`unitPrice * quantity`).
+- `items[].currencyId` (integer): Currency ID of the product price (`1` = YER, `2` = SAR).
 
 #### Errors
-*   **404 Not Found**: If the order does not exist OR is owned by another user.
-    ```json
-    {
-      "statusCode": 404,
-      "success": false,
-      "data": null,
-      "errors": [
-        "Order not found."
-      ]
-    }
-    ```
+
+- **404 Not Found**: If the order does not exist OR is owned by another user.
+  ```json
+  {
+    "statusCode": 404,
+    "success": false,
+    "data": null,
+    "errors": ["Order not found."]
+  }
+  ```
 
 ---
 
 ## 4. Cancel Order
+
 Cancels an order. Cancellation is **only** allowed if the order's current status is `Pending` (`orderStatusId: 1`). Canceling an order releases/restores the product variation stock levels back to the inventory.
 
 - **URL:** `/api/Orders/{id}/cancel`
@@ -168,6 +177,7 @@ Cancels an order. Cancellation is **only** allowed if the order's current status
   - `Authorization: Bearer <your_jwt_token>`
 
 ### Response (200 OK)
+
 Returns the updated order payload showing `orderStatusId: 5` (Cancelled).
 
 ```json
@@ -187,15 +197,14 @@ Returns the updated order payload showing `orderStatusId: 5` (Cancelled).
 ```
 
 #### Errors
-*   **400 Bad Request**: If the order is not in `Pending` status (e.g. already Processing, Shipped, or Cancelled).
-    ```json
-    {
-      "statusCode": 400,
-      "success": false,
-      "data": null,
-      "errors": [
-        "Only orders with 'Pending' status can be cancelled."
-      ]
-    }
-    ```
-*   **404 Not Found**: If the order does not exist or is owned by another user.
+
+- **400 Bad Request**: If the order is not in `Pending` status (e.g. already Processing, Shipped, or Cancelled).
+  ```json
+  {
+    "statusCode": 400,
+    "success": false,
+    "data": null,
+    "errors": ["Only orders with 'Pending' status can be cancelled."]
+  }
+  ```
+- **404 Not Found**: If the order does not exist or is owned by another user.

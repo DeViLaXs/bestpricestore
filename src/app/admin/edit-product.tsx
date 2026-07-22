@@ -6,7 +6,6 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Image,
   Modal,
@@ -29,12 +28,17 @@ import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../../hooks/useAuth";
+import { useAlert } from "../../contexts/AlertContext";
+import { useAppToast } from "../../hooks/useAppToast";
 import { useCategoriesQuery } from "../../hooks/useCategories";
 import {
   useCurrenciesQuery,
   useProductQuery,
   useUpdateProductMutation,
   useUploadImageMutation,
+  useDeleteProductMutation,
+  useActivateProductMutation,
+  useDeactivateProductMutation,
 } from "../../hooks/useProducts";
 import EditProductSkeleton from "../../components/EditProductSkeleton";
 import CategoryListSkeleton from "../../components/CategoryListSkeleton";
@@ -63,6 +67,8 @@ interface ImageSlot {
 export default function EditProductScreen(): JSX.Element {
   const insets = useSafeAreaInsets();
   const { user, isAdmin } = useAuth();
+  const { showAlert } = useAlert();
+  const { showSuccessToast, showErrorToast } = useAppToast();
   const { id } = useLocalSearchParams<{ id: string }>();
   const productId = id ? parseInt(id, 10) : 0;
 
@@ -95,6 +101,9 @@ export default function EditProductScreen(): JSX.Element {
   } = useProductQuery(productId);
   const updateProductMutation = useUpdateProductMutation();
   const uploadImageMutation = useUploadImageMutation();
+  const deleteProductMutation = useDeleteProductMutation();
+  const activateMutation = useActivateProductMutation();
+  const deactivateMutation = useDeactivateProductMutation();
 
   // Populate form with existing product details
   useEffect(() => {
@@ -126,7 +135,7 @@ export default function EditProductScreen(): JSX.Element {
     // Request permission if needed
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("تنبيه", "يرجى منح صلاحية الوصول لمعرض الصور لرفع صور المنتج.");
+      showAlert("تنبيه", "يرجى منح صلاحية الوصول لمعرض الصور لرفع صور المنتج.");
       return;
     }
 
@@ -176,7 +185,7 @@ export default function EditProductScreen(): JSX.Element {
             : slot
         )
       );
-      Alert.alert("خطأ", "فشلت عملية رفع الصورة. يرجى المحاولة مرة أخرى.");
+      showAlert("خطأ", "فشلت عملية رفع الصورة. يرجى المحاولة مرة أخرى.");
     }
   };
 
@@ -207,28 +216,70 @@ export default function EditProductScreen(): JSX.Element {
   // Find category name by ID
   const selectedCategoryName = categories.find((cat) => cat.id === selectedCategoryId)?.name || "";
 
+  // Delete Product
+  const handleDeleteProduct = () => {
+    showAlert("حذف المنتج", `هل أنت متأكد من رغبتك في حذف المنتج "${productName}" نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`, [
+      { text: "إلغاء", style: "cancel" },
+      {
+        text: "تأكيد الحذف",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteProductMutation.mutateAsync(productId);
+            showAlert("نجاح", "تم حذف المنتج بنجاح.", [
+              {
+                text: "موافق",
+                onPress: () => {
+                  router.replace("/admin/products");
+                },
+              },
+            ]);
+          } catch (err: any) {
+            showAlert("خطأ", err.message || "فشلت عملية حذف المنتج. يرجى المحاولة مرة أخرى.");
+          }
+        },
+      },
+    ]);
+  };
+  const productIsActive = product?.isActive ?? true;
+
+  const handleToggleStatus = async () => {
+    if (!product) return;
+    try {
+      if (productIsActive) {
+        await deactivateMutation.mutateAsync(product.id);
+        showSuccessToast("نجاح", "تم إخفاء المنتج بنجاح.");
+      } else {
+        await activateMutation.mutateAsync(product.id);
+        showSuccessToast("نجاح", "تم إظهار المنتج بنجاح.");
+      }
+    } catch (err: any) {
+      showErrorToast("خطأ", err.message || "فشلت عملية تغيير حالة المنتج.");
+    }
+  };
+
   // Submit Product Form
   const handleSaveProduct = async () => {
     // 1. Validation
     const trimmedName = productName.trim();
     if (!trimmedName) {
-      Alert.alert("تنبيه", "يرجى إدخال اسم المنتج.");
+      showAlert("تنبيه", "يرجى إدخال اسم المنتج.");
       return;
     }
 
     const priceNum = parseFloat(price.trim());
     if (isNaN(priceNum) || priceNum <= 0) {
-      Alert.alert("تنبيه", "يرجى إدخال سعر صالح أكبر من الصفر.");
+      showAlert("تنبيه", "يرجى إدخال سعر صالح أكبر من الصفر.");
       return;
     }
 
     if (!selectedCurrencyId) {
-      Alert.alert("تنبيه", "يرجى اختيار العملة.");
+      showAlert("تنبيه", "يرجى اختيار العملة.");
       return;
     }
 
     if (!selectedCategoryId) {
-      Alert.alert("تنبيه", "يرجى اختيار فئة المنتج.");
+      showAlert("تنبيه", "يرجى اختيار فئة المنتج.");
       return;
     }
 
@@ -238,12 +289,12 @@ export default function EditProductScreen(): JSX.Element {
     // Check if there are any slots currently uploading
     const currentlyUploading = imageSlots.some((slot) => slot.isUploading);
     if (currentlyUploading) {
-      Alert.alert("تنبيه", "يرجى الانتظار حتى يكتمل رفع الصور الجاري.");
+      showAlert("تنبيه", "يرجى الانتظار حتى يكتمل رفع الصور الجاري.");
       return;
     }
 
     if (validImages.length === 0) {
-      Alert.alert("تنبيه", "يرجى إضافة صورة واحدة على الأقل بنجاح للمنتج.");
+      showAlert("تنبيه", "يرجى إضافة صورة واحدة على الأقل بنجاح للمنتج.");
       return;
     }
 
@@ -268,16 +319,10 @@ export default function EditProductScreen(): JSX.Element {
         },
       });
 
-      Alert.alert("نجاح", "تم تحديث المنتج بنجاح.", [
-        {
-          text: "موافق",
-          onPress: () => {
-            router.replace("/admin/products");
-          },
-        },
-      ]);
+      showSuccessToast("نجاح", "تم تحديث المنتج بنجاح.");
+      router.replace("/admin/products");
     } catch (err: any) {
-      Alert.alert("خطأ", err.message || "فشلت عملية تحديث المنتج. يرجى المحاولة مرة أخرى.");
+      showErrorToast("خطأ", err.message || "فشلت عملية تحديث المنتج. يرجى المحاولة مرة أخرى.");
     }
   };
 
@@ -295,17 +340,17 @@ export default function EditProductScreen(): JSX.Element {
   if (isLoadingProduct) {
     return (
       <View className="flex-1 bg-[#f8fafd]">
-        <StatusBar style="dark" />
-        <View className="bg-white border-b border-gray-100/50" style={{ paddingTop: safeTop }}>
+        <StatusBar style="light" />
+        <View className="bg-[#0F4C92]" style={{ paddingTop: safeTop }}>
           <View className="flex-row items-center justify-between px-6 py-2.5">
             <TouchableOpacity
               onPress={() => router.replace("/admin/products")}
               className="p-1"
               activeOpacity={0.7}
             >
-              <StyledArrowLeft size={24} className="text-gray-900" />
+              <StyledArrowLeft size={24} className="text-white" />
             </TouchableOpacity>
-            <Text className="text-lg font-bold text-gray-900 text-right">تعديل المنتج</Text>
+            <Text className="text-lg font-bold text-white text-right">تعديل المنتج</Text>
           </View>
         </View>
         <EditProductSkeleton />
@@ -316,17 +361,17 @@ export default function EditProductScreen(): JSX.Element {
   if (productError) {
     return (
       <View className="flex-1 bg-[#f8fafd]">
-        <StatusBar style="dark" />
-        <View className="bg-white border-b border-gray-100/50" style={{ paddingTop: safeTop }}>
+        <StatusBar style="light" />
+        <View className="bg-[#0F4C92]" style={{ paddingTop: safeTop }}>
           <View className="flex-row items-center justify-between px-6 py-2.5">
             <TouchableOpacity
               onPress={() => router.replace("/admin/products")}
               className="p-1"
               activeOpacity={0.7}
             >
-              <StyledArrowLeft size={24} className="text-gray-900" />
+              <StyledArrowLeft size={24} className="text-white" />
             </TouchableOpacity>
-            <Text className="text-lg font-bold text-gray-900 text-right">تعديل المنتج</Text>
+            <Text className="text-lg font-bold text-white text-right">تعديل المنتج</Text>
           </View>
         </View>
         <View className="flex-1 bg-[#f8fafd] px-6 justify-center items-center">
@@ -348,10 +393,10 @@ export default function EditProductScreen(): JSX.Element {
 
   return (
     <View className="flex-1 bg-[#f8fafd]">
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
-      {/* Clean White Header Banner */}
-      <View className="bg-white border-b border-gray-100/50" style={{ paddingTop: safeTop }}>
+      {/* Clean Blue Header Banner */}
+      <View className="bg-[#0F4C92]" style={{ paddingTop: safeTop }}>
         <View className="flex-row items-center justify-between px-6 py-2.5">
           {/* Back Button on Left */}
           <TouchableOpacity
@@ -359,11 +404,11 @@ export default function EditProductScreen(): JSX.Element {
             className="p-1"
             activeOpacity={0.7}
           >
-            <StyledArrowLeft size={24} className="text-gray-900" />
+            <StyledArrowLeft size={24} className="text-white" />
           </TouchableOpacity>
 
           {/* Title on Right */}
-          <Text className="text-lg font-bold text-gray-900 text-right">تعديل المنتج</Text>
+          <Text className="text-lg font-bold text-white text-right">تعديل المنتج</Text>
         </View>
       </View>
 
@@ -398,22 +443,15 @@ export default function EditProductScreen(): JSX.Element {
             <View className="relative">
               <TextInput
                 value={description}
-                onChangeText={(text) => {
-                  if (text.length <= 500) {
-                    setDescription(text);
-                  }
-                }}
+                onChangeText={setDescription}
                 placeholder="اكتب وصف المنتج بالتفصيل"
                 placeholderTextColor="#a0aec0"
                 multiline
-                numberOfLines={5}
+                numberOfLines={8}
                 textAlignVertical="top"
-                style={{ fontFamily: "System", height: 120 }}
-                className="rounded-2xl border-[1.5px] border-gray-200 bg-white p-4 pb-8 text-sm text-gray-800 font-semibold text-right"
+                style={{ fontFamily: "System", height: 200 }}
+                className="rounded-2xl border-[1.5px] border-gray-200 bg-white p-4 text-sm text-gray-800 font-semibold text-right"
               />
-              <Text className="absolute bottom-3 left-4 text-xs font-semibold text-gray-400">
-                {description.length}/500
-              </Text>
             </View>
           </View>
 
@@ -477,6 +515,36 @@ export default function EditProductScreen(): JSX.Element {
             </TouchableOpacity>
           </View>
 
+          {/* Status (Active / Inactive) Toggle */}
+          <View className="mb-5 bg-white p-4 rounded-2xl border border-gray-100 flex-row-reverse items-center justify-between shadow-sm">
+            <View className="items-end">
+              <Text className="text-sm font-bold text-gray-800 text-right mb-1">حالة ظهور المنتج</Text>
+              <View className="flex-row-reverse items-center gap-2">
+                <View className={`px-2.5 py-0.5 rounded-full ${productIsActive ? 'bg-[#e6f4ea]' : 'bg-[#fce8e6]'}`}>
+                  <Text className={`text-[10px] font-bold ${productIsActive ? 'text-[#137333]' : 'text-[#c5221f]'}`}>
+                    {productIsActive ? "نشط (يظهر للجميع)" : "غير نشط (مخفي)"}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <TouchableOpacity
+              onPress={handleToggleStatus}
+              disabled={activateMutation.isPending || deactivateMutation.isPending}
+              className={`px-4 py-2 rounded-xl border ${
+                productIsActive ? "border-gray-200 bg-gray-50" : "border-green-200 bg-green-50/50"
+              }`}
+              activeOpacity={0.7}
+            >
+              {activateMutation.isPending || deactivateMutation.isPending ? (
+                <ActivityIndicator size="small" color="#0F4C92" />
+              ) : (
+                <Text className={`text-xs font-bold ${productIsActive ? "text-gray-600" : "text-green-700"}`}>
+                  {productIsActive ? "إخفاء المنتج" : "إظهار المنتج"}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
           {/* Product Images Section */}
           <View className="mb-6">
             <Text className="text-sm font-bold text-gray-800 text-right mb-0.5">صور المنتج</Text>
@@ -518,7 +586,10 @@ export default function EditProductScreen(): JSX.Element {
                         className="px-3 py-1.5"
                         activeOpacity={0.7}
                       >
-                        <StyledMinus size={14} className={slot.quantity <= 1 ? "text-gray-300" : "text-gray-500"} />
+                        <StyledMinus
+                          size={14}
+                          className={slot.quantity <= 1 ? "text-gray-300" : "text-gray-500"}
+                        />
                       </TouchableOpacity>
 
                       <Text
@@ -564,7 +635,7 @@ export default function EditProductScreen(): JSX.Element {
           {/* Submit Button */}
           <TouchableOpacity
             onPress={handleSaveProduct}
-            disabled={updateProductMutation.isPending}
+            disabled={updateProductMutation.isPending || deleteProductMutation.isPending}
             activeOpacity={0.8}
             className="bg-[#0F4C92] h-13 rounded-2xl items-center justify-center flex-row shadow-sm mt-2"
           >
@@ -572,6 +643,20 @@ export default function EditProductScreen(): JSX.Element {
               <ActivityIndicator size="small" color="#ffffff" />
             ) : (
               <Text className="text-white font-bold text-base">حفظ التعديلات</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Delete Product Button */}
+          <TouchableOpacity
+            onPress={handleDeleteProduct}
+            disabled={updateProductMutation.isPending || deleteProductMutation.isPending}
+            activeOpacity={0.8}
+            className="border border-red-200 bg-red-50 h-13 rounded-2xl items-center justify-center flex-row shadow-sm mt-3"
+          >
+            {deleteProductMutation.isPending ? (
+              <ActivityIndicator size="small" color="#ef4444" />
+            ) : (
+              <Text className="text-red-600 font-bold text-base">حذف المنتج نهائياً</Text>
             )}
           </TouchableOpacity>
         </ScrollView>

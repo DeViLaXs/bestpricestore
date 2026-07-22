@@ -6,7 +6,6 @@ import {
   ScrollView,
   Image,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Modal,
   Pressable,
@@ -15,19 +14,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { withUniwind } from "uniwind";
-import {
-  ShoppingCart,
-  X,
-  Plus,
-  Minus,
-  Check,
-} from "lucide-react-native";
-
+import { ShoppingCart, X, Plus, Minus, Check, AlertCircle } from "lucide-react-native";
+import { useAppToast } from "../../hooks/useAppToast";
 import { useCartStore } from "../../store/cartStore";
 import { useAuth } from "../../hooks/useAuth";
 import { useGetProductDetails } from "../../hooks/useProducts";
 import { usePlaceOrderMutation } from "../../hooks/useOrders";
 import { OrderResponseData } from "../../types";
+import { useAlert } from "../../contexts/AlertContext";
 
 // Wrap Lucide Icons with Uniwind
 const StyledShoppingCart = withUniwind(ShoppingCart);
@@ -41,6 +35,8 @@ export default function CartScreen(): JSX.Element {
   const { items, updateQuantity, removeItem, toggleSelect, setItems } = useCartStore();
   const getProductDetails = useGetProductDetails();
   const placeOrderMutation = usePlaceOrderMutation();
+  const { showSuccessToast, showErrorToast } = useAppToast();
+  const { showAlert } = useAlert();
 
   const { isAuthenticated } = useAuth();
   const [isConfirmModalVisible, setIsConfirmModalVisible] = useState(false);
@@ -127,7 +123,7 @@ export default function CartScreen(): JSX.Element {
     if (changesFound) {
       setItems(updatedItems);
       if (messages.length > 0) {
-        Alert.alert("تحديث المخزن للسلة", messages.join("\n"), [{ text: "حسنًا" }]);
+        showAlert("تحديث المخزن للسلة", messages.join("\n"), [{ text: "حسنًا" }]);
       }
     }
     setIsValidating(false);
@@ -138,10 +134,6 @@ export default function CartScreen(): JSX.Element {
       validateCartStock();
     }, [validateCartStock])
   );
-
-
-
-
 
   // Format currency symbol
   const getCurrencySymbol = (name: string) => {
@@ -161,7 +153,12 @@ export default function CartScreen(): JSX.Element {
       const name = item.currencyName || "";
       if (name.includes("سعودي") || item.currencyId === 2 || name === "SAR" || name === "ر.س") {
         saudiTotal += item.price * item.quantity;
-      } else if (name.includes("يمني") || item.currencyId === 1 || name === "YER" || name === "ر.ي") {
+      } else if (
+        name.includes("يمني") ||
+        item.currencyId === 1 ||
+        name === "YER" ||
+        name === "ر.ي"
+      ) {
         yemeniTotal += item.price * item.quantity;
       } else {
         otherTotals[name] = (otherTotals[name] || 0) + item.price * item.quantity;
@@ -174,7 +171,7 @@ export default function CartScreen(): JSX.Element {
   // Plus button handler in cart
   const handleIncreaseQuantity = (item: any) => {
     if (item.quantity >= item.quantityInStock) {
-      Alert.alert(
+      showErrorToast(
         "الحد الأقصى للمخزن",
         `عذرًا، المتوفر في المخزن هو (${item.quantityInStock}) قطع فقط لهذا الخيار.`
       );
@@ -193,24 +190,20 @@ export default function CartScreen(): JSX.Element {
   const handleCheckout = async () => {
     const selectedItems = items.filter((i) => i.selected);
     if (selectedItems.length === 0) {
-      Alert.alert("تنبيه", "يرجى تحديد منتجات على الأقل لإتمام الطلب.");
+      showErrorToast("تنبيه", "يرجى تحديد منتجات على الأقل لإتمام الطلب.");
       return;
     }
 
     if (!isAuthenticated) {
-      Alert.alert(
-        "تنبيه",
-        "يرجى تسجيل الدخول أولاً لإتمام الطلب.",
-        [
-          { text: "إلغاء", style: "cancel" },
-          {
-            text: "تسجيل الدخول",
-            onPress: () => {
-              router.push("/login");
-            },
+      showAlert("تنبيه", "يرجى تسجيل الدخول أولاً لإتمام الطلب.", [
+        { text: "إلغاء", style: "cancel" },
+        {
+          text: "تسجيل الدخول",
+          onPress: () => {
+            router.push("/login");
           },
-        ]
-      );
+        },
+      ]);
       return;
     }
 
@@ -247,7 +240,7 @@ export default function CartScreen(): JSX.Element {
           .map((c) => `• ${c.name}\n  السعر القديم: ${c.oldPrice} — السعر الجديد: ${c.newPrice}`)
           .join("\n\n");
 
-        Alert.alert(
+        showAlert(
           "⚠️ تغيّرت أسعار بعض المنتجات",
           `تم تحديث الأسعار التالية من قِبل الإدارة:\n\n${changesSummary}\n\nهل تريد المتابعة بالأسعار الجديدة؟`,
           [
@@ -309,7 +302,7 @@ export default function CartScreen(): JSX.Element {
           .map((c) => `• ${c.name}\n  السعر القديم: ${c.oldPrice} — السعر الجديد: ${c.newPrice}`)
           .join("\n\n");
 
-        Alert.alert(
+        showAlert(
           "⚠️ تغيّرت الأسعار قبل إتمام الطلب",
           `قامت الإدارة بتغيير الأسعار أثناء مراجعتك للطلب:\n\n${changesSummary}\n\nتم تحديث سلتك بالأسعار الجديدة. يرجى مراجعة الطلب والتأكيد من جديد.`,
           [{ text: "حسنًا", style: "default" }]
@@ -344,7 +337,18 @@ export default function CartScreen(): JSX.Element {
       } else if (error.message) {
         errorMsg = error.message;
       }
-      Alert.alert("خطأ في إرسال الطلب", errorMsg, [{ text: "حسنًا" }]);
+
+      // Check for inactive product error message
+      if (errorMsg.includes("is not active and cannot be ordered") || errorMsg.includes("not active")) {
+        const match = errorMsg.match(/Product '(.*)' is not active/);
+        if (match && match[1]) {
+          errorMsg = `المنتج "${match[1]}" لم يعد نشطاً ولا يمكن طلبه.`;
+        } else {
+          errorMsg = "عذرًا، أحد المنتجات المطلوبة لم يعد نشطاً.";
+        }
+      }
+
+      showErrorToast("خطأ في إرسال الطلب", errorMsg);
     } finally {
       setIsSubmittingOrder(false);
     }
@@ -356,12 +360,12 @@ export default function CartScreen(): JSX.Element {
 
   return (
     <View className="flex-1 bg-[#f8fafd]">
-      <StatusBar style="dark" />
-      
-      {/* Clean White Header Banner */}
-      <View className="bg-white border-b border-gray-100/50" style={{ paddingTop: safeTop }}>
+      <StatusBar style="light" />
+
+      {/* Clean Blue Header Banner */}
+      <View className="bg-[#0F4C92]" style={{ paddingTop: safeTop }}>
         <View className="flex-row-reverse items-center px-6 py-2.5">
-          <Text className="text-lg font-bold text-gray-900 text-right">سلة التسوق</Text>
+          <Text className="text-lg font-bold text-white text-right">سلة التسوق</Text>
         </View>
       </View>
 
@@ -370,8 +374,6 @@ export default function CartScreen(): JSX.Element {
         contentContainerStyle={{ paddingBottom: safeBottom + 120 }}
         className="flex-1"
       >
-
-
         {/* Stock Validation indicator */}
         {isValidating && (
           <View className="flex-row justify-center items-center py-3 gap-2 bg-[#edf5ff] border-y border-blue-50 mt-3">
@@ -414,14 +416,10 @@ export default function CartScreen(): JSX.Element {
                       onPress={() => toggleSelect(item.productId, item.productImageId)}
                       activeOpacity={0.8}
                       className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-                        item.selected
-                          ? "border-[#0F4C92] bg-white"
-                          : "border-slate-300 bg-white"
+                        item.selected ? "border-[#0F4C92] bg-white" : "border-slate-300 bg-white"
                       }`}
                     >
-                      {item.selected && (
-                        <View className="w-3 h-3 rounded-full bg-[#0F4C92]" />
-                      )}
+                      {item.selected && <View className="w-3 h-3 rounded-full bg-[#0F4C92]" />}
                     </TouchableOpacity>
 
                     {/* Product Image */}
@@ -469,18 +467,14 @@ export default function CartScreen(): JSX.Element {
                         onPress={() => handleIncreaseQuantity(item)}
                         disabled={item.quantity >= item.quantityInStock}
                         className={`w-6 h-6 rounded-lg items-center justify-center ${
-                          item.quantity >= item.quantityInStock
-                            ? "bg-slate-200/50"
-                            : "bg-[#0F4C92]"
+                          item.quantity >= item.quantityInStock ? "bg-slate-200/50" : "bg-[#0F4C92]"
                         }`}
                         activeOpacity={0.7}
                       >
                         <StyledPlus
                           size={10}
                           className={
-                            item.quantity >= item.quantityInStock
-                              ? "text-slate-400"
-                              : "text-white"
+                            item.quantity >= item.quantityInStock ? "text-slate-400" : "text-white"
                           }
                         />
                       </TouchableOpacity>
@@ -509,8 +503,6 @@ export default function CartScreen(): JSX.Element {
                 </View>
               );
             })}
-
-
 
             {/* Order totals summary */}
             <View className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs mt-4 gap-3.5">
@@ -543,8 +535,6 @@ export default function CartScreen(): JSX.Element {
                   </Text>
                 </View>
               ))}
-
-
             </View>
           </View>
         )}
@@ -573,7 +563,9 @@ export default function CartScreen(): JSX.Element {
             {isValidatingPrices ? (
               <>
                 <ActivityIndicator size="small" color="white" />
-                <Text className="text-white font-extrabold text-sm text-center">جاري التحقق من الأسعار...</Text>
+                <Text className="text-white font-extrabold text-sm text-center">
+                  جاري التحقق من الأسعار...
+                </Text>
               </>
             ) : (
               <Text className="text-white font-extrabold text-sm text-center">إتمام الطلب</Text>
@@ -604,13 +596,7 @@ export default function CartScreen(): JSX.Element {
             {/* Modal Header */}
             <View className="flex-row-reverse items-center justify-between border-b border-gray-100 pb-4 mb-4">
               <Text className="text-lg font-black text-[#0F4C92]">مراجعة وتأكيد الطلب</Text>
-              <TouchableOpacity
-                onPress={() => setIsConfirmModalVisible(false)}
-                disabled={isSubmittingOrder}
-                className="p-1"
-              >
-                <StyledX size={20} className="text-gray-400" />
-              </TouchableOpacity>
+              
             </View>
 
             {/* Scrollable list of items to confirm */}
@@ -671,8 +657,10 @@ export default function CartScreen(): JSX.Element {
 
               {/* Order total summary inside modal */}
               <View className="mt-5 bg-slate-50 rounded-2xl p-4 border border-slate-100 gap-2.5">
-                <Text className="text-xs font-bold text-slate-700 text-right mb-1">ملخص الإجمالي:</Text>
-                
+                <Text className="text-xs font-bold text-slate-700 text-right mb-1">
+                  ملخص الإجمالي:
+                </Text>
+
                 {totals.saudiTotal > 0 && (
                   <View className="flex-row-reverse justify-between items-center">
                     <Text className="text-xs font-bold text-slate-500">إجمالي بالريال السعودي</Text>
@@ -692,13 +680,7 @@ export default function CartScreen(): JSX.Element {
                 )}
               </View>
 
-              {/* Warnings/Stock Reservation Note */}
-              <View className="mt-4 bg-blue-50/50 rounded-2xl p-3.5 border border-blue-50 flex-row-reverse gap-2 items-center">
-                <View className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                <Text className="flex-1 text-[11px] font-semibold text-blue-600 text-right leading-5">
-                  سيتم مراجعة وتأكيد طلبك وتحديث حالة المخزون فور تأكيد الإرسال.
-                </Text>
-              </View>
+              
             </ScrollView>
 
             {/* Actions */}
@@ -712,7 +694,9 @@ export default function CartScreen(): JSX.Element {
                 {isSubmittingOrder ? (
                   <ActivityIndicator size="small" color="white" />
                 ) : (
-                  <Text className="text-white font-extrabold text-sm text-center">تأكيد إرسال الطلب</Text>
+                  <Text className="text-white font-extrabold text-sm text-center">
+                    تأكيد إرسال الطلب
+                  </Text>
                 )}
               </TouchableOpacity>
 
@@ -777,7 +761,9 @@ export default function CartScreen(): JSX.Element {
 
                 {createdOrderData.totalAmountSar > 0 && (
                   <View className="flex-row-reverse justify-between items-center">
-                    <Text className="text-[11px] font-bold text-slate-500">الإجمالي بالريال السعودي</Text>
+                    <Text className="text-[11px] font-bold text-slate-500">
+                      الإجمالي بالريال السعودي
+                    </Text>
                     <Text className="text-xs font-black text-[#0F4C92]">
                       {createdOrderData.totalAmountSar} ر.س
                     </Text>
@@ -786,7 +772,9 @@ export default function CartScreen(): JSX.Element {
 
                 {createdOrderData.totalAmountYer > 0 && (
                   <View className="flex-row-reverse justify-between items-center">
-                    <Text className="text-[11px] font-bold text-slate-500">الإجمالي بالريال اليمني</Text>
+                    <Text className="text-[11px] font-bold text-slate-500">
+                      الإجمالي بالريال اليمني
+                    </Text>
                     <Text className="text-xs font-black text-[#0F4C92]">
                       {createdOrderData.totalAmountYer} ر.ي
                     </Text>
@@ -806,7 +794,6 @@ export default function CartScreen(): JSX.Element {
                 </View>
               </View>
             )}
-
 
             {/* Close Button */}
             <TouchableOpacity

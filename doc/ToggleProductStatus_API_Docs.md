@@ -14,18 +14,21 @@ Sets the product's status to active (`IsActive = true`), making it visible on Re
 - **Role Required:** Admin
 
 ### Path Parameters
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `id` | `integer` | The unique ID of the product to activate. |
+
+| Parameter | Type      | Description                               |
+| --------- | --------- | ----------------------------------------- |
+| `id`      | `integer` | The unique ID of the product to activate. |
 
 ### Request Headers
-| Header | Value |
-|--------|-------|
+
+| Header          | Value                      |
+| --------------- | -------------------------- |
 | `Authorization` | `Bearer {admin_jwt_token}` |
 
 ### Responses
 
 **Success (200 OK):**
+
 ```json
 {
   "statusCode": 200,
@@ -38,14 +41,13 @@ Sets the product's status to active (`IsActive = true`), making it visible on Re
 ```
 
 **Not Found (404 Not Found):**
+
 ```json
 {
   "statusCode": 404,
   "success": false,
   "data": null,
-  "errors": [
-    "Product not found."
-  ]
+  "errors": ["Product not found."]
 }
 ```
 
@@ -61,18 +63,21 @@ Sets the product's status to inactive (`IsActive = false`), soft-deleting it and
 - **Role Required:** Admin
 
 ### Path Parameters
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `id` | `integer` | The unique ID of the product to deactivate. |
+
+| Parameter | Type      | Description                                 |
+| --------- | --------- | ------------------------------------------- |
+| `id`      | `integer` | The unique ID of the product to deactivate. |
 
 ### Request Headers
-| Header | Value |
-|--------|-------|
+
+| Header          | Value                      |
+| --------------- | -------------------------- |
 | `Authorization` | `Bearer {admin_jwt_token}` |
 
 ### Responses
 
 **Success (200 OK):**
+
 ```json
 {
   "statusCode": 200,
@@ -85,13 +90,12 @@ Sets the product's status to inactive (`IsActive = false`), soft-deleting it and
 ```
 
 **Not Found (404 Not Found):**
+
 ```json
 {
   "statusCode": 404,
   "success": false,
   "data": null,
-  "errors": [
-    "Product not found."
-  ]
+  "errors": ["Product not found."]
 }
 ```

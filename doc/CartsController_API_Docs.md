@@ -14,12 +14,14 @@ Adds a specific product variation (associated with an image ID) to the authentic
 - **Role Required:** Any authenticated user (e.g. Representative)
 
 ### Request Headers
-| Header | Value |
-|--------|-------|
+
+| Header          | Value                |
+| --------------- | -------------------- |
 | `Authorization` | `Bearer {jwt_token}` |
-| `Content-Type` | `application/json` |
+| `Content-Type`  | `application/json`   |
 
 ### Request Body
+
 ```json
 {
   "productId": 1,
@@ -30,13 +32,14 @@ Adds a specific product variation (associated with an image ID) to the authentic
 
 ### Request Parameters
 
-| Field | Type | Required | Range | Description |
-|-------|------|----------|-------|-------------|
-| `productId` | `integer` | Yes | - | The ID of the parent product. |
-| `productImageId` | `integer` | Yes | - | The ID of the image representing the specific product variation/color/style. |
-| `quantity` | `integer` | Yes | Must be >= 1 | The quantity of the item to add. |
+| Field            | Type      | Required | Range        | Description                                                                  |
+| ---------------- | --------- | -------- | ------------ | ---------------------------------------------------------------------------- |
+| `productId`      | `integer` | Yes      | -            | The ID of the parent product.                                                |
+| `productImageId` | `integer` | Yes      | -            | The ID of the image representing the specific product variation/color/style. |
+| `quantity`       | `integer` | Yes      | Must be >= 1 | The quantity of the item to add.                                             |
 
 ### Business Validation Rules
+
 1. **Variation Validation**: Verifies that the `productImageId` exists. If not found, returns `404 Not Found`.
 2. **Product Association**: Verifies that the `productImageId` belongs to the specified `productId`. If they mismatch, returns `400 Bad Request`.
 3. **Active Product**: Verifies that the product is active (`IsActive == true`). If inactive, returns `400 Bad Request`.
@@ -47,6 +50,7 @@ Adds a specific product variation (associated with an image ID) to the authentic
 ### Responses
 
 **Success (200 OK):**
+
 ```json
 {
   "statusCode": 200,
@@ -59,51 +63,47 @@ Adds a specific product variation (associated with an image ID) to the authentic
 ```
 
 **Bad Request (400 Bad Request) - Mismatch / Inactive:**
+
 ```json
 {
   "statusCode": 400,
   "success": false,
   "data": null,
-  "errors": [
-    "The requested image variation does not belong to the specified product."
-  ]
+  "errors": ["The requested image variation does not belong to the specified product."]
 }
 ```
 
 **Bad Request (400 Bad Request) - Insufficient Stock:**
+
 ```json
 {
   "statusCode": 400,
   "success": false,
   "data": null,
-  "errors": [
-    "Insufficient stock. Only 10 items are available in stock for this variation."
-  ]
+  "errors": ["Insufficient stock. Only 10 items are available in stock for this variation."]
 }
 ```
 
 **Unauthorized (401 Unauthorized):**
-*Returned if the Authorization header is missing or contains an invalid/expired token.*
+_Returned if the Authorization header is missing or contains an invalid/expired token._
+
 ```json
 {
   "statusCode": 401,
   "success": false,
   "data": null,
-  "errors": [
-    "User is not properly authenticated."
-  ]
+  "errors": ["User is not properly authenticated."]
 }
 ```
 
 **Not Found (404 Not Found):**
-*Returned if the image variation ID does not exist.*
+_Returned if the image variation ID does not exist._
+
 ```json
 {
   "statusCode": 404,
   "success": false,
   "data": null,
-  "errors": [
-    "Product variation (image ID) not found."
-  ]
+  "errors": ["Product variation (image ID) not found."]
 }
 ```

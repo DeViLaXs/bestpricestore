@@ -14,10 +14,10 @@ Creates a new order, validates stock availability, deducts stock for variations,
 
 ### Request Headers
 
-| Header | Value |
-|--------|-------|
+| Header          | Value                |
+| --------------- | -------------------- |
 | `Authorization` | `Bearer {jwt_token}` |
-| `Content-Type` | `application/json` |
+| `Content-Type`  | `application/json`   |
 
 ### Request Body (CreateOrderRequestDTO)
 
@@ -38,17 +38,18 @@ Creates a new order, validates stock availability, deducts stock for variations,
 
 #### Field Specifications
 
-| Field | Type | Required | Constraints | Description |
-|-------|------|----------|-------------|-------------|
-| `items` | `array` | Yes | Min 1 item | List of items to purchase. |
-| `items[].productImageId` | `integer` | Yes | - | The unique ID of the product image variation being ordered. |
-| `items[].quantity` | `integer` | Yes | Must be >= 1 | The quantity requested for this variation. |
+| Field                    | Type      | Required | Constraints  | Description                                                 |
+| ------------------------ | --------- | -------- | ------------ | ----------------------------------------------------------- |
+| `items`                  | `array`   | Yes      | Min 1 item   | List of items to purchase.                                  |
+| `items[].productImageId` | `integer` | Yes      | -            | The unique ID of the product image variation being ordered. |
+| `items[].quantity`       | `integer` | Yes      | Must be >= 1 | The quantity requested for this variation.                  |
 
 ---
 
 ### Responses
 
 #### Success (201 Created)
+
 Returns the created order details, including status lookup IDs, separate currency total amounts, and detailed lists of ordered products.
 
 ```json
@@ -89,9 +90,10 @@ Returns the created order details, including status lookup IDs, separate currenc
 }
 ```
 
-*Note: `orderStatusId: 1` corresponds to the `"Pending"` status seeded in the database.*
+_Note: `orderStatusId: 1` corresponds to the `"Pending"` status seeded in the database._
 
 #### Bad Request - Insufficient Stock (400 Bad Request)
+
 If any item in the order exceeds available stock levels, the transaction is rolled back and an error is returned.
 
 ```json
@@ -106,6 +108,7 @@ If any item in the order exceeds available stock levels, the transaction is roll
 ```
 
 #### Bad Request - Validation Failure (400 Bad Request)
+
 If the payload violates data constraints (e.g. quantity less than 1).
 
 ```json
@@ -114,14 +117,13 @@ If the payload violates data constraints (e.g. quantity less than 1).
   "title": "One or more validation errors occurred.",
   "status": 400,
   "errors": {
-    "Items[0].Quantity": [
-      "Quantity must be at least 1."
-    ]
+    "Items[0].Quantity": ["Quantity must be at least 1."]
   }
 }
 ```
 
 #### Unauthorized (401 Unauthorized)
+
 If the bearer token is missing, expired, or invalid.
 
 ```json
@@ -129,8 +131,6 @@ If the bearer token is missing, expired, or invalid.
   "statusCode": 401,
   "success": false,
   "data": null,
-  "errors": [
-    "User is not properly authenticated."
-  ]
+  "errors": ["User is not properly authenticated."]
 }
 ```

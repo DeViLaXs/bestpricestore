@@ -24,7 +24,10 @@ export const productService = {
     pageNumber?: number;
     pageSize?: number;
   }): Promise<BrowseProductsResponse> {
-    const response = await api.get<ApiResponseEnvelope<BrowseProductsResponse>>("/products/browse", { params });
+    const response = await api.get<ApiResponseEnvelope<BrowseProductsResponse>>(
+      "/products/browse",
+      { params }
+    );
     const responseData = response.data;
     if (responseData.success && responseData.data) {
       return responseData.data;
@@ -178,7 +181,9 @@ export const productService = {
    * Activates a product (sets IsActive = true)
    */
   async activateProduct(id: number): Promise<void> {
-    const response = await api.put<ApiResponseEnvelope<{ message: string }>>(`/products/${id}/activate`);
+    const response = await api.put<ApiResponseEnvelope<{ message: string }>>(
+      `/products/${id}/activate`
+    );
     const responseData = response.data;
     if (!responseData.success) {
       throw new Error(
@@ -193,7 +198,9 @@ export const productService = {
    * Deactivates a product (sets IsActive = false)
    */
   async deactivateProduct(id: number): Promise<void> {
-    const response = await api.put<ApiResponseEnvelope<{ message: string }>>(`/products/${id}/deactivate`);
+    const response = await api.put<ApiResponseEnvelope<{ message: string }>>(
+      `/products/${id}/deactivate`
+    );
     const responseData = response.data;
     if (!responseData.success) {
       throw new Error(
@@ -203,6 +210,22 @@ export const productService = {
       );
     }
   },
+
+  /**
+   * Soft-deletes an existing product
+   */
+  async deleteProduct(id: number): Promise<void> {
+    const response = await api.delete<ApiResponseEnvelope<{ message: string }>>(`/products/${id}`);
+    const responseData = response.data;
+    if (!responseData.success) {
+      throw new Error(
+        responseData.errors && responseData.errors.length > 0
+          ? responseData.errors.join("\n")
+          : "فشلت عملية حذف المنتج."
+      );
+    }
+  },
+
 
   /**
    * Fetches latest 5 active products widget
@@ -225,7 +248,8 @@ export const productService = {
    * Fetches top 10 selling products widget
    */
   async getTopSellingProducts(): Promise<TopSellingProduct[]> {
-    const response = await api.get<ApiResponseEnvelope<TopSellingProduct[]>>("/Products/top-selling");
+    const response =
+      await api.get<ApiResponseEnvelope<TopSellingProduct[]>>("/Products/top-selling");
     const responseData = response.data;
     if (responseData.success && responseData.data) {
       return responseData.data;

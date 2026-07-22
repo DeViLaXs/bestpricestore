@@ -1,27 +1,22 @@
 import type { JSX } from "react";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   View,
   Text,
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
-import {
-  Search,
-  AlertCircle,
-  Users,
-  User,
-  ArrowLeft,
-} from "lucide-react-native";
+import { Search, AlertCircle, Users, User, ArrowLeft, Phone, MapPin } from "lucide-react-native";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useAuth } from "../../hooks/useAuth";
+import { useAlert } from "../../contexts/AlertContext";
+import { useAppToast } from "../../hooks/useAppToast";
 import {
   useRepresentativesQuery,
   useApproveRepresentativeMutation,
@@ -32,6 +27,8 @@ import RepresentativeListSkeleton from "../../components/RepresentativeListSkele
 export default function RepresentativesScreen(): JSX.Element {
   const insets = useSafeAreaInsets();
   const { user, isAdmin } = useAuth();
+  const { showAlert } = useAlert();
+  const { showSuccessToast, showErrorToast } = useAppToast();
 
   // Route guard: only allow users with Admin role or credentials
   useEffect(() => {
@@ -39,8 +36,16 @@ export default function RepresentativesScreen(): JSX.Element {
       router.replace("/" as any);
     }
   }, [user, isAdmin]);
-  
+
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
   // Query & Mutation hooks
   const {
@@ -49,36 +54,28 @@ export default function RepresentativesScreen(): JSX.Element {
     error,
     refetch,
     isRefetching,
-  } = useRepresentativesQuery();
+  } = useRepresentativesQuery(debouncedQuery);
+
+  // Auto refetch when page gets focus
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
+
   const approveMutation = useApproveRepresentativeMutation();
   const suspendMutation = useSuspendRepresentativeMutation();
 
   const isActionLoading = approveMutation.isPending || suspendMutation.isPending;
 
-  // Filter representatives list based on search query (name, phone, or location)
-  const filteredRepresentatives = useMemo(() => {
-    const reps = Array.isArray(representatives) ? representatives : [];
-    if (!searchQuery.trim()) return reps;
-    const query = searchQuery.toLowerCase().trim();
-    return reps.filter(
-      (rep) =>
-        rep &&
-        (String(rep.storeName ?? "")
-          .toLowerCase()
-          .includes(query) ||
-          String(rep.phoneNumber ?? "")
-            .toLowerCase()
-            .includes(query) ||
-          String(rep.location ?? "")
-            .toLowerCase()
-            .includes(query))
-    );
-  }, [representatives, searchQuery]);
+  const repsList = useMemo(() => {
+    return Array.isArray(representatives) ? representatives : [];
+  }, [representatives]);
 
   const handleToggleStatus = (rep: { id: number; storeName: string; isActive: boolean }) => {
     if (rep.isActive) {
       // Prompt to Suspend
-      Alert.alert(
+      showAlert(
         "إيقاف الحساب",
         `هل أنت متأكد من رغبتك في إيقاف حساب المندوب "${rep.storeName}"؟`,
         [
@@ -89,9 +86,10 @@ export default function RepresentativesScreen(): JSX.Element {
             onPress: async () => {
               try {
                 await suspendMutation.mutateAsync(rep.id);
-                Alert.alert("نجاح", "تم إيقاف حساب المندوب بنجاح.");
+                await refetch();
+                showSuccessToast("نجاح", "تم إيقاف حساب المندوب بنجاح.");
               } catch (err: any) {
-                Alert.alert("خطأ", err.message || "فشلت عملية إيقاف الحساب.");
+                showErrorToast("خطأ", err.message || "فشلت عملية إيقاف الحساب.");
               }
             },
           },
@@ -99,7 +97,7 @@ export default function RepresentativesScreen(): JSX.Element {
       );
     } else {
       // Prompt to Approve
-      Alert.alert(
+      showAlert(
         "تفعيل الحساب",
         `هل أنت متأكد من رغبتك في تفعيل حساب المندوب "${rep.storeName}"؟`,
         [
@@ -109,9 +107,10 @@ export default function RepresentativesScreen(): JSX.Element {
             onPress: async () => {
               try {
                 await approveMutation.mutateAsync(rep.id);
-                Alert.alert("نجاح", "تم تفعيل حساب المندوب بنجاح.");
+                await refetch();
+                showSuccessToast("نجاح", "تم تفعيل حساب المندوب بنجاح.");
               } catch (err: any) {
-                Alert.alert("خطأ", err.message || "فشلت عملية تفعيل الحساب.");
+                showErrorToast("خطأ", err.message || "فشلت عملية تفعيل الحساب.");
               }
             },
           },
@@ -124,10 +123,10 @@ export default function RepresentativesScreen(): JSX.Element {
 
   return (
     <View className="flex-1 bg-white">
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
-      {/* Clean White Header Banner */}
-      <View className="bg-white border-b border-gray-100/50" style={{ paddingTop: safeTop }}>
+      {/* Clean Blue Header Banner */}
+      <View className="bg-[#0F4C92]" style={{ paddingTop: safeTop }}>
         <View className="flex-row items-center justify-between px-6 py-2.5">
           {/* Back Button on Left */}
           <TouchableOpacity
@@ -135,11 +134,11 @@ export default function RepresentativesScreen(): JSX.Element {
             className="p-1"
             activeOpacity={0.7}
           >
-            <ArrowLeft size={24} color="#1a202c" />
+            <ArrowLeft size={24} color="#ffffff" />
           </TouchableOpacity>
 
           {/* Title on Right */}
-          <Text className="text-lg font-bold text-gray-900 text-right">المندوبين</Text>
+          <Text className="text-lg font-bold text-white text-right">المندوبين</Text>
         </View>
       </View>
 
@@ -192,7 +191,7 @@ export default function RepresentativesScreen(): JSX.Element {
               لا يوجد مندوبين مسجلين حالياً
             </Text>
           </ScrollView>
-        ) : filteredRepresentatives.length === 0 ? (
+        ) : repsList.length === 0 ? (
           <ScrollView
             contentContainerStyle={{ flexGrow: 1, justifyContent: "center", alignItems: "center" }}
             refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
@@ -216,53 +215,80 @@ export default function RepresentativesScreen(): JSX.Element {
               <RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={["#0F4C92"]} />
             }
           >
-            {filteredRepresentatives.map((rep) => (
-              <View
+            {repsList.map((rep) => (
+              <TouchableOpacity
                 key={rep.id}
-                className="bg-white rounded-2xl p-3.5 flex-row items-center justify-between shadow-sm border border-gray-100/80"
+                onPress={() => {
+                  router.push({
+                    pathname: "/admin/representative-details",
+                    params: {
+                      id: rep.id.toString(),
+                      storeName: rep.storeName,
+                      phoneNumber: rep.phoneNumber || "",
+                      location: rep.location || "",
+                      isActive: rep.isActive.toString(),
+                    },
+                  } as any);
+                }}
+                activeOpacity={0.8}
+                className="bg-white rounded-2xl p-4 flex-row items-center justify-between shadow-sm border border-gray-100"
               >
-                {/* Left Side Action Button */}
+                {/* Left Side Status Toggle Button */}
                 <TouchableOpacity
                   onPress={() => !isActionLoading && handleToggleStatus(rep)}
                   disabled={isActionLoading}
                   activeOpacity={0.7}
-                  className={`px-3.5 py-1.5 rounded-full min-w-[84px] items-center justify-center ${
-                    rep.isActive ? "bg-[#e0f2fe]" : "bg-[#fee2e2]"
+                  className={`px-4 py-2 rounded-xl min-w-[76px] items-center justify-center border ${
+                    rep.isActive 
+                      ? "bg-red-50/50 border-red-100" 
+                      : "bg-emerald-50/50 border-emerald-100"
                   }`}
                 >
-                  {rep.isActive ? (
-                    <Text className="text-[#0F4C92] font-extrabold text-[11px]">تعديل الحالة</Text>
-                  ) : (
-                    <View className="flex-row items-center gap-1">
-                      <Text className="text-[#991b1b] font-extrabold text-[11px]">غير نشط</Text>
-                      <Text className="text-xs">😢</Text>
-                    </View>
-                  )}
+                  <Text className={`font-black text-xs ${rep.isActive ? "text-red-600" : "text-emerald-600"}`}>
+                    {rep.isActive ? "إيقاف" : "تفعيل"}
+                  </Text>
                 </TouchableOpacity>
 
                 {/* Right Side Info & Avatar */}
                 <View className="flex-row items-center gap-3 flex-1 justify-end">
-                  {/* Name and status */}
-                  <View className="items-end">
-                    <Text className="font-extrabold text-gray-900 text-sm mb-0.5 text-right">
+                  {/* Name and details */}
+                  <View className="items-end gap-1 flex-1">
+                    <Text className="font-extrabold text-gray-900 text-sm text-right">
                       {rep.storeName}
                     </Text>
-                    <View className="flex-row-reverse items-center gap-1.5">
-                      <Text className="text-[10px] font-bold text-emerald-600">متاح</Text>
-                      <Text
-                        className={`text-[10px] font-bold ${rep.isActive ? "text-emerald-600" : "text-gray-400"}`}
-                      >
+
+                    {rep.phoneNumber ? (
+                      <View className="flex-row-reverse items-center gap-1.5">
+                        <Phone size={11} className="text-gray-400" />
+                        <Text className="text-[11px] font-medium text-gray-500">{rep.phoneNumber}</Text>
+                      </View>
+                    ) : null}
+
+                    {rep.location ? (
+                      <View className="flex-row-reverse items-center gap-1.5">
+                        <MapPin size={11} className="text-gray-400" />
+                        <Text className="text-[11px] font-medium text-gray-500">{rep.location}</Text>
+                      </View>
+                    ) : null}
+
+                    <View className={`px-2 py-0.5 mt-0.5 rounded-md flex-row-reverse items-center gap-1 ${
+                      rep.isActive ? "bg-emerald-50" : "bg-red-50"
+                    }`}>
+                      <View className={`w-1.5 h-1.5 rounded-full ${rep.isActive ? "bg-emerald-500" : "bg-red-500"}`} />
+                      <Text className={`text-[9px] font-bold ${rep.isActive ? "text-emerald-700" : "text-red-700"}`}>
                         {rep.isActive ? "نشط" : "غير نشط"}
                       </Text>
                     </View>
                   </View>
 
-                  {/* Avatar Default Icon */}
-                  <View className="w-10 h-10 rounded-full bg-gray-50 border border-gray-100 items-center justify-center">
-                    <User size={18} className="text-gray-400" />
+                  {/* Avatar Icon */}
+                  <View className={`w-11 h-11 rounded-full items-center justify-center border ${
+                    rep.isActive ? "bg-emerald-50/30 border-emerald-100/60" : "bg-red-50/30 border-red-100/60"
+                  }`}>
+                    <User size={20} className={rep.isActive ? "text-emerald-600" : "text-red-400"} />
                   </View>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </ScrollView>
         )}

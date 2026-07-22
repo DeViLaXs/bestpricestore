@@ -32,4 +32,3 @@
 - **Access Services via Hooks**: UI components and pages must **never** call or import services (from `src/services`) directly.
 - **Use React Query / Custom Hooks**: All service methods must be wrapped and accessed using hooks (from `src/hooks`, typically built with `@tanstack/react-query` or similar state management).
 - **Add Missing Hooks**: If a service action is needed but no corresponding hook exists, create a new hook in `src/hooks` first, then consume that hook in the UI.
-

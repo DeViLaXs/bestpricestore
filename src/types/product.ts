@@ -92,4 +92,3 @@ export interface TopSellingProduct {
   primaryImageUrl?: string;
   totalQuantitySold: number;
 }
-

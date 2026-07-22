@@ -5,10 +5,10 @@ import { Category } from "../types";
 /**
  * Hook to retrieve the list of categories.
  */
-export const useCategoriesQuery = () => {
+export const useCategoriesQuery = (search?: string) => {
   return useQuery<Category[], Error>({
-    queryKey: ["categories"],
-    queryFn: () => categoryService.getCategories(),
+    queryKey: ["categories", search],
+    queryFn: () => categoryService.getCategories(search),
   });
 };
 

@@ -1,6 +1,6 @@
 import type { JSX } from "react";
 import { useState } from "react";
-import { View, ScrollView, KeyboardAvoidingView, Platform, Pressable, Alert } from "react-native";
+import { View, ScrollView, KeyboardAvoidingView, Platform, Pressable } from "react-native";
 import { router } from "expo-router";
 import { Button, Input, TextField, Label, Typography } from "heroui-native";
 import { Smartphone, Eye, EyeOff } from "lucide-react-native";
@@ -8,6 +8,7 @@ import { withUniwind } from "uniwind";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useAuth, getErrorMessage, checkIsAdmin } from "../hooks/useAuth";
+import { useAlert } from "../contexts/AlertContext";
 
 const StyledSmartphone = withUniwind(Smartphone);
 const StyledEye = withUniwind(Eye);
@@ -15,6 +16,7 @@ const StyledEyeOff = withUniwind(EyeOff);
 
 export default function LoginScreen(): JSX.Element {
   const { loginMutation } = useAuth();
+  const { showAlert } = useAlert();
   const isLoading = loginMutation.isPending;
   const authError = loginMutation.error
     ? getErrorMessage(
@@ -37,11 +39,11 @@ export default function LoginScreen(): JSX.Element {
    */
   const handleSubmit = async () => {
     if (!phone.trim()) {
-      Alert.alert("تنبيه", "يرجى إدخال رقم الجوال");
+      showAlert("تنبيه", "يرجى إدخال رقم الجوال");
       return;
     }
     if (!password) {
-      Alert.alert("تنبيه", "يرجى إدخال كلمة المرور");
+      showAlert("تنبيه", "يرجى إدخال كلمة المرور");
       return;
     }
 

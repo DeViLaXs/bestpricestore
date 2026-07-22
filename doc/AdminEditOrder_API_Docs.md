@@ -5,11 +5,13 @@ This document describes the administrative endpoint for editing the items and qu
 ---
 
 ## Base URL
+
 All URLs are relative to the application's base path, for example: `http://localhost:5194`
 
 ---
 
 ## 1. Edit Order Items
+
 Updates the items and quantities within an order. The API only allows **decreasing** quantities or **removing** items (setting quantity to `0` or omitting them).
 
 - **URL:** `/api/admin/orders/{id}/items`
@@ -20,6 +22,7 @@ Updates the items and quantities within an order. The API only allows **decreasi
   - `Content-Type: application/json`
 
 ### Request Body (EditOrderItemsRequestDTO)
+
 ```json
 {
   "items": [
@@ -50,7 +53,9 @@ Updates the items and quantities within an order. The API only allows **decreasi
 ### Responses
 
 #### Success (200 OK)
+
 Returns the updated order details containing the new totals and remaining items.
+
 ```json
 {
   "statusCode": 200,
@@ -80,6 +85,7 @@ Returns the updated order details containing the new totals and remaining items.
 ```
 
 #### Bad Request - Attempted Quantity Increase (400 Bad Request)
+
 ```json
 {
   "statusCode": 400,
@@ -92,13 +98,12 @@ Returns the updated order details containing the new totals and remaining items.
 ```
 
 #### Bad Request - Cancelled Order (400 Bad Request)
+
 ```json
 {
   "statusCode": 400,
   "success": false,
   "data": null,
-  "errors": [
-    "Cannot edit items of a cancelled order."
-  ]
+  "errors": ["Cannot edit items of a cancelled order."]
 }
 ```

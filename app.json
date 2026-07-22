@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "bestpricestore",
+    "name": "السعر المناسب",
     "slug": "bestpricestore",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/app-icon.png",
     "scheme": "bestpricestore",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -17,7 +17,7 @@
     "android": {
       "package": "com.devilaxs.bestpricestore",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/app-icon.png",
         "backgroundColor": "#ffffff"
       },
       "predictiveBackGestureEnabled": false
@@ -25,15 +25,15 @@
     "plugins": [
       "expo-router",
       "expo-font",
+      "expo-status-bar",
+      "expo-sharing",
       [
-        "expo-splash-screen",
+        "expo-media-library",
         {
-          "image": "./assets/images/logo.jpg",
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "photosPermission": "Allow this app to save product images to your photo gallery.",
+          "saveToPhotosPermission": "Allow this app to save product images to your photo gallery."
         }
-      ],
-      "expo-status-bar"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

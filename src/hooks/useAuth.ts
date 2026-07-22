@@ -59,9 +59,7 @@ export const getErrorMessage = (
 
 export type AppRole = "admin" | "representative" | null;
 
-export const getUserRole = (
-  user: { role?: string | string[] } | null | undefined
-): AppRole => {
+export const getUserRole = (user: { role?: string | string[] } | null | undefined): AppRole => {
   if (!user) return null;
 
   const roles = Array.isArray(user.role)

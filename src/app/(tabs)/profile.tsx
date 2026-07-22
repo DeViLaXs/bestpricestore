@@ -1,29 +1,19 @@
 import type { JSX } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  Alert,
-} from "react-native";
-import {
-  MapPin,
-  ChevronLeft,
-  LogOut,
-  Phone,
-  Package,
-} from "lucide-react-native";
+import { View, Text, TouchableOpacity, ScrollView } from "react-native";
+import { MapPin, ChevronLeft, LogOut, Phone, Package } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useAuth } from "../../hooks/useAuth";
+import { useAlert } from "../../contexts/AlertContext";
 
 export default function MoreScreen(): JSX.Element {
   const { user, logoutMutation } = useAuth();
+  const { showAlert } = useAlert();
   const insets = useSafeAreaInsets();
 
   const handleLogout = async () => {
-    Alert.alert(
+    showAlert(
       "تسجيل الخروج",
       "هل أنت متأكد من رغبتك في تسجيل الخروج؟",
       [
@@ -40,8 +30,7 @@ export default function MoreScreen(): JSX.Element {
             }
           },
         },
-      ],
-      { cancelable: true }
+      ]
     );
   };
 
@@ -60,12 +49,12 @@ export default function MoreScreen(): JSX.Element {
 
   return (
     <View className="flex-1 bg-[#f8fafd]">
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
-      {/* Clean White Header Banner */}
-      <View className="bg-white border-b border-gray-100/50" style={{ paddingTop: safeTop }}>
+      {/* Clean Blue Header Banner */}
+      <View className="bg-[#0F4C92]" style={{ paddingTop: safeTop }}>
         <View className="flex-row-reverse items-center px-6 py-2.5">
-          <Text className="text-lg font-bold text-gray-900 text-right">الملف الشخصي</Text>
+          <Text className="text-lg font-bold text-white text-right">الملف الشخصي</Text>
         </View>
       </View>
 
@@ -90,9 +79,7 @@ export default function MoreScreen(): JSX.Element {
           <Text className="font-extrabold text-gray-900 text-lg text-center">
             {user?.fullName || "مندوب"}
           </Text>
-          <Text className="text-gray-400 text-xs font-semibold mt-0.5 text-center">
-            مندوب متجر
-          </Text>
+          <Text className="text-gray-400 text-xs font-semibold mt-0.5 text-center">مندوب متجر</Text>
 
           {/* Contact Details Pill */}
           <View className="flex-row items-center justify-center gap-1.5 mt-4 bg-gray-50 px-3.5 py-1.5 rounded-full border border-gray-100">
@@ -102,9 +89,7 @@ export default function MoreScreen(): JSX.Element {
             </Text>
             <Text className="text-gray-300">|</Text>
             <Phone size={13} color="#718096" />
-            <Text className="text-gray-500 text-xs font-semibold">
-              {user?.phone}
-            </Text>
+            <Text className="text-gray-500 text-xs font-semibold">{user?.phone}</Text>
           </View>
         </View>
 
@@ -113,8 +98,6 @@ export default function MoreScreen(): JSX.Element {
           <Text className="text-right text-sm font-black text-gray-400 px-5 pt-4 pb-1">
             إعدادات الحساب
           </Text>
-
-          
 
           {/* Logout */}
           <TouchableOpacity
@@ -126,9 +109,7 @@ export default function MoreScreen(): JSX.Element {
               <View className="w-9 h-9 rounded-2xl bg-red-50 items-center justify-center">
                 <LogOut size={18} color="#e53e3e" />
               </View>
-              <Text className="font-bold text-rose-600 text-sm text-right">
-                تسجيل الخروج
-              </Text>
+              <Text className="font-bold text-rose-600 text-sm text-right">تسجيل الخروج</Text>
             </View>
             <ChevronLeft size={18} color="#a0aec0" />
           </TouchableOpacity>

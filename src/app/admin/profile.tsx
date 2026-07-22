@@ -5,7 +5,6 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  Alert,
   TextInput,
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -15,7 +14,8 @@ import { Check, MapPin, Phone, User, ArrowLeft } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useToast, Toast } from "heroui-native";
+import { useAppToast } from "../../hooks/useAppToast";
+import { useAlert } from "../../contexts/AlertContext";
 import { useAuth } from "../../hooks/useAuth";
 import { useAuthStore } from "../../store/authStore";
 import { useUpdateProfileMutation } from "../../hooks/useRepresentatives";
@@ -23,7 +23,8 @@ import { useUpdateProfileMutation } from "../../hooks/useRepresentatives";
 export default function AdminProfileScreen(): JSX.Element {
   const { user, isAdmin } = useAuth();
   const insets = useSafeAreaInsets();
-  const { toast } = useToast();
+  const { showSuccessToast } = useAppToast();
+  const { showAlert } = useAlert();
   const updateProfileMutation = useUpdateProfileMutation();
 
   const [storeName, setStoreName] = useState(user?.fullName || "");
@@ -37,57 +38,63 @@ export default function AdminProfileScreen(): JSX.Element {
   }, [user, isAdmin]);
 
   const handleUpdateProfile = async () => {
-    if (!storeName.trim() || !phone.trim() || !location.trim()) {
-      Alert.alert("خطأ", "يرجى ملء جميع الحقول المطلوبة.");
+    const trimmedStoreName = storeName.trim();
+    const trimmedPhone = phone.trim();
+    const trimmedLocation = location.trim();
+
+    if (!trimmedStoreName || !trimmedPhone || !trimmedLocation) {
+      showAlert("خطأ", "يرجى ملء جميع الحقول المطلوبة.");
+      return;
+    }
+
+    const hasChanges =
+      trimmedStoreName !== (user?.fullName || "").trim() ||
+      trimmedPhone !== (user?.phone || "").trim() ||
+      trimmedLocation !== (user?.location || "").trim();
+
+    if (!hasChanges) {
+      showAlert("تنبيه", "لم تقم بإجراء أي تغييرات لحفظها.");
       return;
     }
 
     try {
       await updateProfileMutation.mutateAsync({
-        storeName: storeName.trim(),
-        phoneNumber: phone.trim(),
-        location: location.trim(),
+        storeName: trimmedStoreName,
+        phoneNumber: trimmedPhone,
+        location: trimmedLocation,
       });
 
       const setUser = useAuthStore.getState().setUser;
       if (user) {
         setUser({
           ...user,
-          fullName: storeName.trim(),
-          phone: phone.trim(),
-          location: location.trim(),
+          fullName: trimmedStoreName,
+          phone: trimmedPhone,
+          location: trimmedLocation,
         });
       }
 
-      toast.show({
-        component: (props) => (
-          <Toast
-            variant="success"
-            {...props}
-            className="bg-white border border-gray-100 p-3.5 rounded-2xl flex-row-reverse items-center shadow-lg"
-          >
-            <View className="w-8 h-8 rounded-full bg-green-50 justify-center items-center ml-3">
-              <Check size={18} color="#16a34a" />
-            </View>
-            <View className="items-end flex-1 pr-1">
-              <Text className="text-gray-900 font-extrabold text-xs text-right">نجاح</Text>
-              <Text className="text-gray-500 font-bold text-[10px] text-right mt-0.5">
-                تم تحديث بيانات الملف الشخصي بنجاح.
-              </Text>
-            </View>
-            <Toast.Close className="mr-auto" iconProps={{ size: 14, color: "#94a3b8" }} />
-          </Toast>
-        ),
-      });
+      showSuccessToast("نجاح", "تم تحديث بيانات الملف الشخصي بنجاح.");
 
       router.back();
     } catch (error: any) {
       console.log("Profile update failed:", error);
-      const errorMsg =
-        error.response?.data?.message ||
-        error.message ||
-        "فشلت عملية تحديث البيانات الشخصية. يرجى المحاولة مرة أخرى.";
-      Alert.alert("خطأ", errorMsg);
+      
+      let errorMsg = "فشلت عملية تحديث البيانات الشخصية. يرجى المحاولة مرة أخرى.";
+      if (error.response?.data) {
+        const envelope = error.response.data;
+        if (envelope.errors && Array.isArray(envelope.errors) && envelope.errors.length > 0) {
+          errorMsg = envelope.errors.join("\n");
+        } else if (envelope.data?.message) {
+          errorMsg = envelope.data.message;
+        } else if (envelope.message) {
+          errorMsg = envelope.message;
+        }
+      } else if (error.message) {
+        errorMsg = error.message;
+      }
+      
+      showAlert("خطأ", errorMsg);
     }
   };
 
@@ -103,11 +110,7 @@ export default function AdminProfileScreen(): JSX.Element {
       {/* Header */}
       <View className="bg-white border-b border-gray-100/50" style={{ paddingTop: safeTop }}>
         <View className="flex-row items-center justify-between px-6 py-2.5">
-          <TouchableOpacity
-            onPress={() => router.back()}
-            className="p-1"
-            activeOpacity={0.7}
-          >
+          <TouchableOpacity onPress={() => router.back()} className="p-1" activeOpacity={0.7}>
             <ArrowLeft size={24} color="#1a202c" />
           </TouchableOpacity>
           <Text className="text-lg font-bold text-gray-900 text-right">الملف الشخصي</Text>

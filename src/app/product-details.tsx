@@ -1,14 +1,6 @@
 import type { JSX } from "react";
 import { useState, useMemo } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  Image,
-  TouchableOpacity,
-  Alert,
-  FlatList,
-} from "react-native";
+import { View, Text, ScrollView, Image, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -16,26 +8,40 @@ import { withUniwind } from "uniwind";
 import {
   ChevronLeft,
   ChevronRight,
-  Share2,
   Package,
   AlertCircle,
   Sparkles,
   Plus,
   Minus,
+  Copy,
+  Download,
 } from "lucide-react-native";
+import * as Clipboard from "expo-clipboard";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
+import { useAppToast } from "../hooks/useAppToast";
 
-import { useProductQuery, useProductsQuery, useCurrenciesQuery } from "../hooks/useProducts";
+let MediaLibrary: typeof import("expo-media-library") | null = null;
+try {
+  MediaLibrary = require("expo-media-library");
+} catch (e) {
+  // expo-media-library not available in current environment (e.g. Expo Go without dev client build)
+}
+
+import { useProductQuery, useCurrenciesQuery } from "../hooks/useProducts";
 import { useCartStore } from "../store/cartStore";
+import { api } from "../api/api";
 
 // Wrap Lucide icons with Uniwind
 const StyledChevronLeft = withUniwind(ChevronLeft);
 const StyledChevronRight = withUniwind(ChevronRight);
-const StyledShare2 = withUniwind(Share2);
 const StyledPackage = withUniwind(Package);
 const StyledAlertCircle = withUniwind(AlertCircle);
 const StyledSparkles = withUniwind(Sparkles);
 const StyledPlus = withUniwind(Plus);
 const StyledMinus = withUniwind(Minus);
+const StyledCopy = withUniwind(Copy);
+const StyledDownload = withUniwind(Download);
 
 // Detail Screen Loading Skeleton
 const ProductDetailsSkeleton = (): JSX.Element => {
@@ -48,8 +54,10 @@ const ProductDetailsSkeleton = (): JSX.Element => {
       {/* Top Slider Skeleton */}
       <View className="w-full h-[380px] bg-gray-100 relative">
         {/* Float Header Skeleton */}
-        <View className="absolute flex-row justify-between w-full px-5 z-20" style={{ top: safeTop }}>
-          <View className="w-11 h-11 rounded-full bg-white/80" />
+        <View
+          className="absolute flex-row justify-between w-full px-5 z-20"
+          style={{ top: safeTop }}
+        >
           <View className="w-11 h-11 rounded-full bg-white/80" />
         </View>
         <View className="absolute bottom-6 w-full flex-row justify-center gap-1.5 z-20">
@@ -98,6 +106,7 @@ export default function ProductDetailsScreen(): JSX.Element {
   const { id } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const productId = Number(id);
+  const { showSuccessToast, showErrorToast } = useAppToast();
 
   // Fetch product data
   const {
@@ -110,16 +119,6 @@ export default function ProductDetailsScreen(): JSX.Element {
 
   // Fetch dynamic currencies list for price resolution
   const { data: currencies = [] } = useCurrenciesQuery();
-
-  // Fetch similar products in the same category
-  const { data: similarProducts = [] } = useProductsQuery({
-    categoryId: product?.categoryId,
-  });
-
-  // Filter out current product from similar recommendations
-  const filteredSimilar = useMemo(() => {
-    return similarProducts.filter((p) => p.id !== productId && p.isActive);
-  }, [similarProducts, productId]);
 
   // Main active preview image state
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
@@ -185,7 +184,7 @@ export default function ProductDetailsScreen(): JSX.Element {
   const handleAddToCart = () => {
     if (!product) return;
     if (!activeImage) {
-      Alert.alert("خطأ", "عذرًا، لا يوجد صورة أو فئة محددة لهذا المنتج.");
+      showErrorToast("خطأ", "عذرًا، لا يوجد صورة أو فئة محددة لهذا المنتج.");
       return;
     }
 
@@ -205,24 +204,103 @@ export default function ProductDetailsScreen(): JSX.Element {
     );
 
     if (result.success) {
-      Alert.alert(
+      showSuccessToast(
         "تم الإضافة",
-        `تم إضافة عدد (${quantity}) من "${product.name}" إلى سلة المشتريات بنجاح.`,
-        [{ text: "حسنًا" }]
+        `تم إضافة عدد (${quantity}) من "${product.name}" إلى سلة المشتريات بنجاح.`
       );
     } else {
-      Alert.alert("تنبيه", result.error || "تعذر إضافة المنتج بالسلة.");
+      showErrorToast("تنبيه", result.error || "تعذر إضافة المنتج بالسلة.");
     }
   };
 
-  // Share action
-  const handleShare = () => {
-    if (!product) return;
-    Alert.alert(
-      "مشاركة المنتج",
-      `رابط مشاركة منتج "${product.name}":\nhttps://bestpricestore.local/product/${product.id}`,
-      [{ text: "حسنًا" }]
-    );
+  // Download product image
+  const [isDownloading, setIsDownloading] = useState(false);
+  const handleDownloadImage = async () => {
+    if (!activeImageUrl) {
+      showErrorToast("خطأ", "لا توجد صورة متاحة للتحميل.");
+      return;
+    }
+
+    const runSharingFallback = async (originalError?: any) => {
+      try {
+        if (await Sharing.isAvailableAsync()) {
+          const cleanFilename = activeImageUrl.split("/").pop()?.split("?")[0] || "product-image.jpg";
+          const tempUri = `${FileSystem.cacheDirectory}${cleanFilename}`;
+          const downloadResult = await FileSystem.downloadAsync(encodeURI(activeImageUrl), tempUri);
+          await Sharing.shareAsync(downloadResult.uri, {
+            mimeType: "image/jpeg",
+            dialogTitle: "حفظ أو مشاركة صورة المنتج",
+          });
+        } else {
+          showErrorToast(
+            "فشل التحميل",
+            originalError?.message || "فشل تحميل الصورة، يرجى المحاولة لاحقاً."
+          );
+        }
+      } catch (shareErr) {
+        console.error("Sharing fallback failed:", shareErr);
+        showErrorToast(
+          "خطأ في التحميل",
+          originalError?.message || "فشل تحميل الصورة، يرجى المحاولة لاحقاً."
+        );
+      }
+    };
+
+    try {
+      setIsDownloading(true);
+
+      // If MediaLibrary module isn't loaded (e.g. not compiled in native build / Expo Go), use sharing fallback directly
+      if (!MediaLibrary) {
+        await runSharingFallback();
+        return;
+      }
+
+      // Step 1: Request Media Library Permissions
+      const permission = await MediaLibrary.requestPermissionsAsync();
+      if (!permission.granted) {
+        showErrorToast(
+          "تم رفض الإذن",
+          "مطلوب إذن الوصول إلى معرض الصور لحفظ صور المنتجات على جهازك."
+        );
+        return;
+      }
+
+      // Handle relative URLs (resolve with backend API domain)
+      let fullUrl = activeImageUrl;
+      if (!fullUrl.startsWith("http://") && !fullUrl.startsWith("https://")) {
+        const apiBase = api.defaults.baseURL || "";
+        const match = apiBase.match(/^(https?:\/\/[^\/]+)/);
+        const domain = match ? match[1] : "";
+        fullUrl = `${domain}${fullUrl.startsWith("/") ? "" : "/"}${fullUrl}`;
+      }
+
+      // Encode URL to handle spaces and special characters safely
+      const encodedUrl = encodeURI(fullUrl);
+
+      // Extract clean filename without query parameters
+      const urlParts = fullUrl.split("/");
+      const filename = urlParts[urlParts.length - 1] || "product-image.jpg";
+      const cleanFilename = filename.split("?")[0] || "product-image.jpg";
+      const localUri = `${FileSystem.documentDirectory || FileSystem.cacheDirectory}${cleanFilename}`;
+
+      // Download the image file
+      const downloadResult = await FileSystem.downloadAsync(encodedUrl, localUri);
+
+      if (downloadResult.status !== 200) {
+        throw new Error(
+          `خادم الصور أرجع رمز حالة غير صحيح: ${downloadResult.status} (الرابط: ${fullUrl})`
+        );
+      }
+
+      // Save to media library (photo gallery)
+      await MediaLibrary.saveToLibraryAsync(downloadResult.uri);
+      showSuccessToast("تم بنجاح", "تم حفظ الصورة في معرض الصور الخاص بك بنجاح.");
+    } catch (err: any) {
+      console.error("Download Error:", err);
+      await runSharingFallback(err);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const safeTop = insets.top > 0 ? insets.top + 12 : 36;
@@ -243,7 +321,9 @@ export default function ProductDetailsScreen(): JSX.Element {
           خطأ في تحميل تفاصيل المنتج
         </Text>
         <Text className="text-gray-500 text-sm mb-6 text-center">
-          {error?.message || "تعذر العثور على هذا المنتج أو تم حذفه."}
+          {error && (error as any).response?.status === 404
+            ? "عذرًا، هذا المنتج غير متوفر حاليًا أو غير نشط."
+            : error?.message || "تعذر العثور على هذا المنتج أو تم حذفه."}
         </Text>
         <View className="flex-row gap-3">
           <TouchableOpacity
@@ -274,11 +354,7 @@ export default function ProductDetailsScreen(): JSX.Element {
         <View className="w-full h-[380px] bg-gray-50 relative">
           {/* Main Display Image */}
           {activeImageUrl ? (
-            <Image
-              source={{ uri: activeImageUrl }}
-              className="w-full h-full"
-              resizeMode="cover"
-            />
+            <Image source={{ uri: activeImageUrl }} className="w-full h-full" resizeMode="cover" />
           ) : (
             <View className="w-full h-full items-center justify-center bg-gray-100">
               <StyledPackage size={64} className="text-gray-300" />
@@ -286,7 +362,10 @@ export default function ProductDetailsScreen(): JSX.Element {
           )}
 
           {/* Floating Translucent Header Circles */}
-          <View className="absolute flex-row justify-between w-full px-5 z-20" style={{ top: safeTop }}>
+          <View
+            className="absolute flex-row justify-between w-full px-5 z-20"
+            style={{ top: safeTop }}
+          >
             {/* Back button (Left) */}
             <TouchableOpacity
               onPress={() => router.back()}
@@ -296,13 +375,18 @@ export default function ProductDetailsScreen(): JSX.Element {
               <StyledChevronLeft size={24} className="text-gray-800 -ml-0.5" />
             </TouchableOpacity>
 
-            {/* Share button (Right) */}
+            {/* Download button (Right) */}
             <TouchableOpacity
-              onPress={handleShare}
-              activeOpacity={0.8}
+              onPress={handleDownloadImage}
+              disabled={isDownloading}
+              activeOpacity={0.85}
               className="w-11 h-11 rounded-full bg-white/85 items-center justify-center shadow-md border border-gray-100"
             >
-              <StyledShare2 size={20} className="text-gray-800" />
+              {isDownloading ? (
+                <ActivityIndicator size="small" color="#0F4C92" />
+              ) : (
+                <StyledDownload size={20} className="text-gray-800" />
+              )}
             </TouchableOpacity>
           </View>
 
@@ -358,7 +442,10 @@ export default function ProductDetailsScreen(): JSX.Element {
                 <TouchableOpacity
                   onPress={() => {
                     if (product.categoryId) {
-                      router.push({ pathname: "/shop", params: { categoryId: product.categoryId.toString() } } as any);
+                      router.push({
+                        pathname: "/shop",
+                        params: { categoryId: product.categoryId.toString() },
+                      } as any);
                     }
                   }}
                   activeOpacity={0.7}
@@ -379,10 +466,23 @@ export default function ProductDetailsScreen(): JSX.Element {
 
           {/* Product Description Box */}
           <View className="mb-6 bg-slate-50/50 rounded-2xl p-4 border border-slate-100/50">
-            <Text className="text-sm font-black text-slate-800 text-right mb-2">
-              تفاصيل المنتج
-            </Text>
-            <Text className="text-slate-600 text-[13px] text-right leading-6 font-medium">
+            <View className="flex-row-reverse justify-between items-center mb-2">
+              <Text className="text-sm font-black text-slate-800 text-right">تفاصيل المنتج</Text>
+              {product.description ? (
+                <TouchableOpacity
+                  onPress={async () => {
+                    await Clipboard.setStringAsync(product.description);
+                    showSuccessToast("تم النسخ", "تم نسخ وصف المنتج بنجاح.");
+                  }}
+                  activeOpacity={0.7}
+                  className="flex-row items-center gap-1 bg-slate-100 px-2.5 py-1 rounded-lg active:bg-slate-200"
+                >
+                  <StyledCopy size={13} className="text-slate-500" />
+                  <Text className="text-[10px] font-bold text-slate-500">نسخ الوصف</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            <Text selectable className="text-slate-600 text-[13px] text-right leading-6 font-medium">
               {product.description || "لا يوجد وصف متوفر لهذا المنتج حالياً."}
             </Text>
           </View>
@@ -390,9 +490,7 @@ export default function ProductDetailsScreen(): JSX.Element {
           {/* Colors Swatches Place -> Replaced with Gallery Images Thumbnails */}
           {product.images && product.images.length > 0 && (
             <View className="mb-6">
-              <Text className="text-sm font-black text-slate-800 text-right mb-3">
-                اللون / مقاس
-              </Text>
+              <Text className="text-sm font-black text-slate-800 text-right mb-3">اللون</Text>
               <View className="flex-row-reverse flex-wrap gap-3.5">
                 {product.images.map((img, index) => {
                   const isSelected = activeImageUrl === img.imageUrl;
@@ -401,13 +499,13 @@ export default function ProductDetailsScreen(): JSX.Element {
                       key={img.id || index}
                       onPress={() => setSelectedImageUrl(img.imageUrl)}
                       activeOpacity={0.8}
-                      className={`w-16 h-16 rounded-full overflow-hidden border-2 p-0.5 justify-center items-center ${
+                      className={`w-16 h-16 rounded-2xl overflow-hidden border-2 p-0.5 justify-center items-center ${
                         isSelected ? "border-[#0F4C92] bg-[#f0f7ff]" : "border-slate-200 bg-white"
                       }`}
                     >
                       <Image
                         source={{ uri: img.imageUrl }}
-                        className="w-full h-full rounded-full bg-slate-50"
+                        className="w-full h-full rounded-2xl bg-slate-50"
                         resizeMode="cover"
                       />
                     </TouchableOpacity>
@@ -416,70 +514,28 @@ export default function ProductDetailsScreen(): JSX.Element {
               </View>
 
               {/* Exact Stock Quantity Label (Explicit Indicator) */}
-              <View className={`mt-4 flex-row-reverse items-center justify-between rounded-2xl px-4 py-3 border ${
-                stockAvailable === 0 
-                  ? "bg-red-50/50 border-red-100" 
-                  : stockAvailable < 5 
-                    ? "bg-amber-50/50 border-amber-100" 
-                    : "bg-emerald-50/40 border-emerald-100/60"
-              }`}>
+              <View
+                className={`mt-4 flex-row-reverse items-center justify-between rounded-2xl px-4 py-3 border ${
+                  stockAvailable === 0
+                    ? "bg-red-50/50 border-red-100"
+                    : stockAvailable < 5
+                      ? "bg-amber-50/50 border-amber-100"
+                      : "bg-emerald-50/40 border-emerald-100/60"
+                }`}
+              >
                 <Text className="text-xs font-bold text-gray-600">الكمية المتوفرة في المخزن</Text>
                 {stockAvailable === 0 ? (
                   <Text className="text-red-600 font-extrabold text-xs">نفدت الكمية</Text>
                 ) : stockAvailable < 5 ? (
-                  <Text className="text-amber-700 font-extrabold text-xs">{stockAvailable} قطعة فقط (متبقي قليل!)</Text>
+                  <Text className="text-amber-700 font-extrabold text-xs">
+                    {stockAvailable} قطعة فقط (متبقي قليل!)
+                  </Text>
                 ) : (
-                  <Text className="text-emerald-700 font-extrabold text-xs">{stockAvailable} قطعة</Text>
+                  <Text className="text-emerald-700 font-extrabold text-xs">
+                    {stockAvailable} قطعة
+                  </Text>
                 )}
               </View>
-            </View>
-          )}
-
-          {/* Similar Products Recommendation ("منتجات إضافية") */}
-          {filteredSimilar.length > 0 && (
-            <View className="mt-2">
-              <Text className="text-sm font-black text-slate-800 text-right mb-4">
-                منتجات إضافية
-              </Text>
-              <FlatList
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                data={filteredSimilar}
-                keyExtractor={(item) => item.id.toString()}
-                contentContainerStyle={{ gap: 14 }}
-                inverted // RTL flow helper
-                renderItem={({ item }) => {
-                  const primaryImg = item.images?.find((img) => img.isPrimary) || item.images?.[0];
-                  return (
-                    <TouchableOpacity
-                      onPress={() => router.push(`/product-details?id=${item.id}` as any)}
-                      activeOpacity={0.9}
-                      className="w-36 bg-white border border-slate-100 rounded-3xl p-2.5 shadow-sm items-center justify-between"
-                    >
-                      {primaryImg?.imageUrl ? (
-                        <Image
-                          source={{ uri: primaryImg.imageUrl }}
-                          className="w-full h-24 rounded-2xl bg-slate-50 mb-2"
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <View className="w-full h-24 rounded-2xl bg-slate-50 items-center justify-center mb-2">
-                          <StyledPackage size={24} className="text-slate-300" />
-                        </View>
-                      )}
-                      <Text
-                        className="font-extrabold text-slate-800 text-xs text-center w-full px-1"
-                        numberOfLines={1}
-                      >
-                        {item.name}
-                      </Text>
-                      <Text className="font-black text-[#0F4C92] text-xs mt-1 text-center">
-                        {item.price} {getCurrencySymbol(item.currencyId)}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                }}
-              />
             </View>
           )}
         </View>
@@ -516,13 +572,16 @@ export default function ProductDetailsScreen(): JSX.Element {
                 onPress={() => setQuantity((q) => Math.min(stockAvailable, q + 1))}
                 disabled={quantity >= stockAvailable}
                 className={`w-9 h-9 rounded-xl items-center justify-center border ${
-                  quantity >= stockAvailable 
-                    ? "bg-slate-50 border-slate-300" 
+                  quantity >= stockAvailable
+                    ? "bg-slate-50 border-slate-300"
                     : "bg-[#0F4C92] border-[#0F4C92]"
                 }`}
                 activeOpacity={0.7}
               >
-                <StyledPlus size={16} className={quantity >= stockAvailable ? "text-slate-600" : "text-white"} />
+                <StyledPlus
+                  size={16}
+                  className={quantity >= stockAvailable ? "text-slate-600" : "text-white"}
+                />
               </TouchableOpacity>
 
               {/* Counter Text */}
@@ -535,13 +594,14 @@ export default function ProductDetailsScreen(): JSX.Element {
                 onPress={() => setQuantity((q) => Math.max(1, q - 1))}
                 disabled={quantity <= 1}
                 className={`w-9 h-9 rounded-xl items-center justify-center border ${
-                  quantity <= 1 
-                    ? "bg-slate-50 border-slate-300" 
-                    : "bg-[#0F4C92] border-[#0F4C92]"
+                  quantity <= 1 ? "bg-slate-50 border-slate-300" : "bg-[#0F4C92] border-[#0F4C92]"
                 }`}
                 activeOpacity={0.7}
               >
-                <StyledMinus size={16} className={quantity <= 1 ? "text-slate-600" : "text-white"} />
+                <StyledMinus
+                  size={16}
+                  className={quantity <= 1 ? "text-slate-600" : "text-white"}
+                />
               </TouchableOpacity>
             </View>
           </View>

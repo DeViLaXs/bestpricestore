@@ -48,8 +48,10 @@ export const orderService = {
   /**
    * Retrieves a summary list of all orders placed by the currently logged-in user.
    */
-  async getOrders(): Promise<OrderSummary[]> {
-    const response = await api.get<ApiResponseEnvelope<OrderSummary[]>>("/Orders");
+  async getOrders(orderStatusId?: number | null): Promise<OrderSummary[]> {
+    const response = await api.get<ApiResponseEnvelope<OrderSummary[]>>("/Orders", {
+      params: orderStatusId !== null && orderStatusId !== undefined ? { orderStatusId } : {},
+    });
     const responseData = response.data;
     if (responseData.success && responseData.data) {
       return responseData.data;

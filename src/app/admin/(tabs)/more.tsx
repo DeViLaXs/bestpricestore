@@ -1,11 +1,5 @@
 import type { JSX } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  Alert,
-} from "react-native";
+import { View, Text, TouchableOpacity, ScrollView } from "react-native";
 import {
   MapPin,
   ChevronLeft,
@@ -16,49 +10,47 @@ import {
   Settings,
   User,
   Users,
+  CornerUpLeft,
 } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useAuth } from "../../../hooks/useAuth";
+import { useAlert } from "../../../contexts/AlertContext";
 
 export default function AdminMoreScreen(): JSX.Element {
   const { user, logoutMutation } = useAuth();
   const insets = useSafeAreaInsets();
+  const { showAlert } = useAlert();
 
   const handleLogout = async () => {
-    Alert.alert(
-      "تسجيل الخروج",
-      "هل أنت متأكد من رغبتك في تسجيل الخروج؟",
-      [
-        { text: "إلغاء", style: "cancel" },
-        {
-          text: "خروج",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await logoutMutation.mutateAsync();
-              router.replace("/login");
-            } catch (err) {
-              console.log("Logout failed:", err);
-            }
-          },
+    showAlert("تسجيل الخروج", "هل أنت متأكد من رغبتك في تسجيل الخروج؟", [
+      { text: "إلغاء", style: "cancel" },
+      {
+        text: "خروج",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await logoutMutation.mutateAsync();
+            router.replace("/login");
+          } catch (err) {
+            console.log("Logout failed:", err);
+          }
         },
-      ],
-      { cancelable: true }
-    );
+      },
+    ]);
   };
 
   const safeTop = insets.top > 0 ? insets.top : 47;
 
   return (
     <View className="flex-1 bg-[#f8fafd]">
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
-      {/* Clean White Header Banner */}
-      <View className="bg-white border-b border-gray-100/50" style={{ paddingTop: safeTop }}>
+      {/* Clean Blue Header Banner */}
+      <View className="bg-[#0F4C92]" style={{ paddingTop: safeTop }}>
         <View className="flex-row-reverse items-center px-6 py-2.5">
-          <Text className="text-lg font-bold text-gray-900 text-right">المزيد</Text>
+          <Text className="text-lg font-bold text-white text-right">المزيد</Text>
         </View>
       </View>
 
@@ -92,9 +84,7 @@ export default function AdminMoreScreen(): JSX.Element {
             </Text>
             <Text className="text-gray-300 text-xs">|</Text>
             <Phone size={11} color="#718096" />
-            <Text className="text-gray-500 text-[10px] font-bold">
-              {user?.phone}
-            </Text>
+            <Text className="text-gray-500 text-[10px] font-bold">{user?.phone}</Text>
           </View>
         </View>
 
@@ -150,6 +140,23 @@ export default function AdminMoreScreen(): JSX.Element {
               </View>
               <Text className="font-bold text-gray-800 text-xs text-right mr-2.5">
                 إدارة المندوبين
+              </Text>
+            </View>
+            <ChevronLeft size={16} color="#a0aec0" />
+          </TouchableOpacity>
+
+          {/* 4. Return Products */}
+          <TouchableOpacity
+            onPress={() => router.push("/admin/select-return-order" as any)}
+            className="flex-row-reverse items-center justify-between p-3.5 border-b border-gray-50 active:bg-gray-50"
+            activeOpacity={0.7}
+          >
+            <View className="flex-row-reverse items-center">
+              <View className="w-8 h-8 rounded-xl bg-[#0F4C92]/10 items-center justify-center">
+                <CornerUpLeft size={16} color="#0F4C92" />
+              </View>
+              <Text className="font-bold text-gray-800 text-xs text-right mr-2.5">
+                إرجاع المنتجات
               </Text>
             </View>
             <ChevronLeft size={16} color="#a0aec0" />

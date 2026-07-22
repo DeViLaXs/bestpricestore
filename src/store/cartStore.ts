@@ -41,9 +41,7 @@ export const useCartStore = create<CartState>()(
       addItem: (item, quantity) => {
         const { items } = get();
         const existingIndex = items.findIndex(
-          (i) =>
-            i.productId === item.productId &&
-            i.productImageId === item.productImageId
+          (i) => i.productId === item.productId && i.productImageId === item.productImageId
         );
 
         // Check if there is stock available at all
@@ -85,10 +83,7 @@ export const useCartStore = create<CartState>()(
           // New item
           if (quantity > item.quantityInStock) {
             set({
-              items: [
-                ...items,
-                { ...item, quantity: item.quantityInStock, selected: true },
-              ],
+              items: [...items, { ...item, quantity: item.quantityInStock, selected: true }],
             });
             return {
               success: false,
@@ -106,8 +101,7 @@ export const useCartStore = create<CartState>()(
       removeItem: (productId, productImageId) => {
         set({
           items: get().items.filter(
-            (i) =>
-              !(i.productId === productId && i.productImageId === productImageId)
+            (i) => !(i.productId === productId && i.productImageId === productImageId)
           ),
         });
       },

@@ -23,16 +23,17 @@ Retrieves a paginated list of active products showing only primary image, name, 
 
 ### Request Query Parameters
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `search` | `string` | No | - | Substring query to filter products by Name or Description. |
-| `categoryId` | `integer` | No | - | Category ID filter. |
-| `pageNumber` | `integer` | No | `1` | The page index to fetch (starts at 1). |
-| `pageSize` | `integer` | No | `10` | The number of products to return per page. |
+| Parameter    | Type      | Required | Default | Description                                                |
+| ------------ | --------- | -------- | ------- | ---------------------------------------------------------- |
+| `search`     | `string`  | No       | -       | Substring query to filter products by Name or Description. |
+| `categoryId` | `integer` | No       | -       | Category ID filter.                                        |
+| `pageNumber` | `integer` | No       | `1`     | The page index to fetch (starts at 1).                     |
+| `pageSize`   | `integer` | No       | `10`    | The number of products to return per page.                 |
 
 ### Responses
 
 **Success (200 OK):**
+
 ```json
 {
   "statusCode": 200,
@@ -77,13 +78,14 @@ Retrieves all details for a specific product by ID, including its full descripti
 
 ### Route Parameters
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `id` | `integer` | Yes | The unique ID of the product. |
+| Parameter | Type      | Required | Description                   |
+| --------- | --------- | -------- | ----------------------------- |
+| `id`      | `integer` | Yes      | The unique ID of the product. |
 
 ### Responses
 
 **Success (200 OK):**
+
 ```json
 {
   "statusCode": 200,
@@ -126,14 +128,13 @@ Retrieves all details for a specific product by ID, including its full descripti
 ```
 
 **Not Found (404 Not Found):**
+
 ```json
 {
   "statusCode": 404,
   "success": false,
   "data": null,
-  "errors": [
-    "Product not found."
-  ]
+  "errors": ["Product not found."]
 }
 ```
 
@@ -150,6 +151,7 @@ Retrieves a list of all categories in the system so the frontend can populate th
 ### Responses
 
 **Success (200 OK):**
+
 ```json
 {
   "statusCode": 200,
@@ -185,6 +187,7 @@ Retrieves the list of currencies so the frontend can display the currency name f
 ### Responses
 
 **Success (200 OK):**
+
 ```json
 {
   "statusCode": 200,
@@ -204,16 +207,17 @@ Retrieves the list of currencies so the frontend can display the currency name f
 ```
 
 ### Frontend Currency Resolution Example
+
 ```javascript
 // 1. Fetch currencies once on app load
 const currencies = [
   { id: 1, name: "ريال يمني" },
-  { id: 2, name: "ريال سعودي" }
+  { id: 2, name: "ريال سعودي" },
 ];
 
 // 2. Resolve currency name for a product
 const getCurrencyName = (currencyId) => {
-  const currency = currencies.find(c => c.id === currencyId);
+  const currency = currencies.find((c) => c.id === currencyId);
   return currency ? currency.name : "Unknown Currency";
 };
 

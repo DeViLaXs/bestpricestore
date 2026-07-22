@@ -5,11 +5,13 @@ This document describes the administrative endpoints for managing orders, includ
 ---
 
 ## Base URL
+
 All URLs are relative to the application's base path, for example: `http://localhost:5194`
 
 ---
 
 ## 1. List All Orders
+
 Retrieves a summary list of all orders placed by all users in the system, ordered by creation date descending.
 
 - **URL:** `/api/admin/orders`
@@ -19,6 +21,7 @@ Retrieves a summary list of all orders placed by all users in the system, ordere
   - `Authorization: Bearer <admin_jwt_token>`
 
 ### Response (200 OK)
+
 ```json
 {
   "statusCode": 200,
@@ -50,6 +53,7 @@ Retrieves a summary list of all orders placed by all users in the system, ordere
 ---
 
 ## 2. Get Order Details (Admin)
+
 Retrieves complete product item details for any order in the system by ID.
 
 - **URL:** `/api/admin/orders/{id}`
@@ -59,6 +63,7 @@ Retrieves complete product item details for any order in the system by ID.
   - `Authorization: Bearer <admin_jwt_token>`
 
 ### Response (200 OK)
+
 ```json
 {
   "statusCode": 200,
@@ -98,11 +103,13 @@ Retrieves complete product item details for any order in the system by ID.
 ```
 
 #### Errors
-*   **404 Not Found**: If the order does not exist.
+
+- **404 Not Found**: If the order does not exist.
 
 ---
 
 ## 3. Update Order Status
+
 Updates the status of an order. The request is subject to terminal status checks and strict sequential transition rules.
 
 - **URL:** `/api/admin/orders/{id}/status`
@@ -113,6 +120,7 @@ Updates the status of an order. The request is subject to terminal status checks
   - `Content-Type: application/json`
 
 ### Request Body (UpdateOrderStatusRequestDTO)
+
 ```json
 {
   "orderStatusId": 2
@@ -122,18 +130,19 @@ Updates the status of an order. The request is subject to terminal status checks
 ### Business Rules & Constraints
 
 1.  **Terminal States**:
-    *   If the order is already in status **`Cancelled` (5)** or **`Delivered` (4)**, any status change request is rejected with `400 Bad Request`.
+    - If the order is already in status **`Cancelled` (5)** or **`Delivered` (4)**, any status change request is rejected with `400 Bad Request`.
 2.  **Strict State Transition Sequence**:
-    *   **Pending (1)** can only transition to: **Processing (2)** or **Cancelled (5)**.
-    *   **Processing (2)** can only transition to: **Shipped (3)** or **Cancelled (5)**.
-    *   **Shipped (3)** can only transition to: **Delivered (4)** or **Cancelled (5)**.
-    *   Any other transition (e.g. Pending (1) directly to Shipped (3)) is rejected with `400 Bad Request`.
+    - **Pending (1)** can only transition to: **Processing (2)** or **Cancelled (5)**.
+    - **Processing (2)** can only transition to: **Shipped (3)** or **Cancelled (5)**.
+    - **Shipped (3)** can only transition to: **Delivered (4)** or **Cancelled (5)**.
+    - Any other transition (e.g. Pending (1) directly to Shipped (3)) is rejected with `400 Bad Request`.
 3.  **Stock Restoration**:
-    *   If an active order is transitionally updated **to Cancelled (5)**, the quantities ordered will be automatically restored back to the product image variation stock levels.
+    - If an active order is transitionally updated **to Cancelled (5)**, the quantities ordered will be automatically restored back to the product image variation stock levels.
 
 ### Responses
 
 #### Success (200 OK)
+
 ```json
 {
   "statusCode": 200,
@@ -152,7 +161,9 @@ Updates the status of an order. The request is subject to terminal status checks
 ```
 
 #### Bad Request - Invalid Transition Sequence (400 Bad Request)
+
 Returned if the requested transition skips states in the sequence.
+
 ```json
 {
   "statusCode": 400,
@@ -165,14 +176,14 @@ Returned if the requested transition skips states in the sequence.
 ```
 
 #### Bad Request - Terminal State Lock (400 Bad Request)
+
 Returned if attempting to update a Delivered or Cancelled order.
+
 ```json
 {
   "statusCode": 400,
   "success": false,
   "data": null,
-  "errors": [
-    "Cannot update status of a delivered order."
-  ]
+  "errors": ["Cannot update status of a delivered order."]
 }
 ```

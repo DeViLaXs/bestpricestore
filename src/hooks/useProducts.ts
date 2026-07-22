@@ -1,5 +1,11 @@
 import { useCallback } from "react";
-import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  useInfiniteQuery,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import { productService } from "../services/product.service";
 import {
   Currency,
@@ -58,7 +64,11 @@ export const useProductsQuery = (params?: { search?: string; categoryId?: number
 /**
  * Hook to retrieve products list with infinite pagination, filtering, and search.
  */
-export const useInfiniteProductsQuery = (params?: { search?: string; categoryId?: number; pageSize?: number }) => {
+export const useInfiniteProductsQuery = (params?: {
+  search?: string;
+  categoryId?: number;
+  pageSize?: number;
+}) => {
   return useInfiniteQuery<BrowseProductsResponse, Error>({
     queryKey: ["products-infinite", params],
     queryFn: ({ pageParam = 1 }) =>
@@ -71,6 +81,7 @@ export const useInfiniteProductsQuery = (params?: { search?: string; categoryId?
     getNextPageParam: (lastPage) => {
       return lastPage.hasNextPage ? lastPage.pageNumber + 1 : undefined;
     },
+    placeholderData: keepPreviousData,
   });
 };
 
@@ -86,6 +97,19 @@ export const useProductQuery = (id: number) => {
 };
 
 /**
+ * Helper to invalidate all product-related cache queries.
+ */
+const invalidateAllProductQueries = (queryClient: ReturnType<typeof useQueryClient>, id?: number) => {
+  queryClient.invalidateQueries({ queryKey: ["products"] });
+  queryClient.invalidateQueries({ queryKey: ["products-infinite"] });
+  queryClient.invalidateQueries({ queryKey: ["products-latest"] });
+  queryClient.invalidateQueries({ queryKey: ["products-top-selling"] });
+  if (id) {
+    queryClient.invalidateQueries({ queryKey: ["product", id] });
+  }
+};
+
+/**
  * Hook to update an existing product.
  */
 export const useUpdateProductMutation = () => {
@@ -94,10 +118,7 @@ export const useUpdateProductMutation = () => {
   return useMutation<Product, Error, { id: number; data: UpdateProductRequest }>({
     mutationFn: ({ id, data }) => productService.updateProduct(id, data),
     onSuccess: (data, variables) => {
-      // Invalidate products list cache
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      // Invalidate individual product cache
-      queryClient.invalidateQueries({ queryKey: ["product", variables.id] });
+      invalidateAllProductQueries(queryClient, variables.id);
     },
   });
 };
@@ -111,8 +132,7 @@ export const useActivateProductMutation = () => {
   return useMutation<void, Error, number>({
     mutationFn: (id) => productService.activateProduct(id),
     onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["product", id] });
+      invalidateAllProductQueries(queryClient, id);
     },
   });
 };
@@ -126,8 +146,21 @@ export const useDeactivateProductMutation = () => {
   return useMutation<void, Error, number>({
     mutationFn: (id) => productService.deactivateProduct(id),
     onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["product", id] });
+      invalidateAllProductQueries(queryClient, id);
+    },
+  });
+};
+
+/**
+ * Hook to soft-delete a product.
+ */
+export const useDeleteProductMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, number>({
+    mutationFn: (id) => productService.deleteProduct(id),
+    onSuccess: (_, id) => {
+      invalidateAllProductQueries(queryClient, id);
     },
   });
 };
@@ -166,4 +199,3 @@ export const useTopSellingProductsQuery = () => {
     queryFn: () => productService.getTopSellingProducts(),
   });
 };
-

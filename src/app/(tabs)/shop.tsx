@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -17,13 +17,16 @@ import { StatusBar } from "expo-status-bar";
 import { withUniwind } from "uniwind";
 import {
   Search,
-  SlidersHorizontal,
   Package,
   AlertCircle,
   Tag,
   Plus,
   Star,
+  Check,
+  ShoppingCart,
 } from "lucide-react-native";
+
+import { useAppToast } from "../../hooks/useAppToast";
 
 import {
   useInfiniteProductsQuery,
@@ -36,7 +39,6 @@ import { useCartStore } from "../../store/cartStore";
 
 // Wrap Lucide icons with Uniwind for compatibility with classNames
 const StyledSearch = withUniwind(Search);
-const StyledSlidersHorizontal = withUniwind(SlidersHorizontal);
 const StyledPackage = withUniwind(Package);
 const StyledAlertCircle = withUniwind(AlertCircle);
 const StyledTag = withUniwind(Tag);
@@ -53,7 +55,10 @@ const ProductCardSkeleton = (): JSX.Element => (
 export default function ShopScreen(): JSX.Element {
   const insets = useSafeAreaInsets();
   const getProductDetails = useGetProductDetails();
-  const params = useLocalSearchParams<{ categoryId?: string }>();
+  const params = useLocalSearchParams<{ categoryId?: string; focusSearch?: string }>();
+  const { items } = useCartStore();
+  const searchInputRef = useRef<TextInput>(null);
+  const { showSuccessToast, showErrorToast } = useAppToast();
 
   // Search and Filter States
   const [searchQuery, setSearchQuery] = useState("");
@@ -76,8 +81,7 @@ export default function ShopScreen(): JSX.Element {
     }
   }, [params.categoryId]);
 
-  // Price Sort State: 'none' | 'asc' | 'desc'
-  const [priceSort, setPriceSort] = useState<"none" | "asc" | "desc">("none");
+
 
   // Debounce search query to optimize API requests
   useEffect(() => {
@@ -123,7 +127,13 @@ export default function ShopScreen(): JSX.Element {
   useFocusEffect(
     useCallback(() => {
       refetch();
-    }, [refetch])
+      if (params.focusSearch === "true") {
+        setTimeout(() => {
+          searchInputRef.current?.focus();
+        }, 200);
+        router.setParams({ focusSearch: undefined });
+      }
+    }, [refetch, params.focusSearch])
   );
 
   // Flatten paginated pages into a single items array
@@ -131,16 +141,7 @@ export default function ShopScreen(): JSX.Element {
     return data?.pages.flatMap((page) => page.items) || [];
   }, [data]);
 
-  // Apply client-side price sorting
-  const sortedProducts = useMemo(() => {
-    if (priceSort === "asc") {
-      return [...allProducts].sort((a, b) => a.price - b.price);
-    }
-    if (priceSort === "desc") {
-      return [...allProducts].sort((a, b) => b.price - a.price);
-    }
-    return allProducts;
-  }, [allProducts, priceSort]);
+  const sortedProducts = allProducts;
 
   // Helper to resolve currency abbreviation from lookup mapping
   const getCurrencySymbol = (currencyId: number) => {
@@ -151,58 +152,51 @@ export default function ShopScreen(): JSX.Element {
     return currency.name;
   };
 
-  // Cycle through price sorting options
-  const handlePriceSortPress = () => {
-    setPriceSort((prev) => {
-      if (prev === "none") return "asc";
-      if (prev === "asc") return "desc";
-      return "none";
-    });
-  };
+
 
   // Add product to cart action
   const handleAddToCart = async (productItem: any) => {
     try {
       const detailedProduct = await getProductDetails(productItem.id);
       if (!detailedProduct || !detailedProduct.images || detailedProduct.images.length === 0) {
-        Alert.alert("خطأ", "عذرًا، لا تتوفر تفاصيل أو صور لهذا المنتج حاليًا.");
+        showErrorToast("خطأ", "عذرًا، لا تتوفر تفاصيل أو صور لهذا المنتج حاليًا.");
         return;
       }
 
-      const primaryImage = detailedProduct.images.find((img) => img.isPrimary) || detailedProduct.images[0];
+      const primaryImage =
+        detailedProduct.images.find((img) => img.isPrimary) || detailedProduct.images[0];
       if (!primaryImage) {
-        Alert.alert("خطأ", "لا توجد تفاصيل المخزن لهذا المنتج.");
+        showErrorToast("خطأ", "لا توجد تفاصيل المخزن لهذا المنتج.");
         return;
       }
 
       if (primaryImage.quantityInStock <= 0) {
-        Alert.alert("تنبيه", "عذرًا، هذا المنتج غير متوفر في المخزن حاليًا.");
+        showErrorToast("تنبيه", "عذرًا، هذا المنتج غير متوفر في المخزن حاليًا.");
         return;
       }
 
       const cartStore = useCartStore.getState();
-      const result = cartStore.addItem({
-        productId: detailedProduct.id,
-        productImageId: primaryImage.id,
-        name: detailedProduct.name,
-        price: detailedProduct.price,
-        currencyId: detailedProduct.currencyId,
-        currencyName: detailedProduct.currencyName || "ريال سعودي",
-        imageUrl: primaryImage.imageUrl,
-        quantityInStock: primaryImage.quantityInStock,
-      }, 1);
+      const result = cartStore.addItem(
+        {
+          productId: detailedProduct.id,
+          productImageId: primaryImage.id,
+          name: detailedProduct.name,
+          price: detailedProduct.price,
+          currencyId: detailedProduct.currencyId,
+          currencyName: detailedProduct.currencyName || "ريال سعودي",
+          imageUrl: primaryImage.imageUrl,
+          quantityInStock: primaryImage.quantityInStock,
+        },
+        1
+      );
 
       if (result.success) {
-        Alert.alert(
-          "تم الإضافة",
-          `تم إضافة "${detailedProduct.name}" إلى سلة المشتريات بنجاح.`,
-          [{ text: "حسنًا" }]
-        );
+        showSuccessToast("تم الإضافة", `تم إضافة "${detailedProduct.name}" إلى سلة المشتريات بنجاح.`);
       } else {
-        Alert.alert("تنبيه", result.error || "تعذر إضافة المنتج بالسلة.");
+        showErrorToast("تنبيه", result.error || "تعذر إضافة المنتج بالسلة.");
       }
     } catch {
-      Alert.alert("خطأ", "فشلت عملية إضافة المنتج للسلة، يرجى المحاولة لاحقًا.");
+      showErrorToast("خطأ", "فشلت عملية إضافة المنتج للسلة، يرجى المحاولة لاحقًا.");
     }
   };
 
@@ -218,16 +212,17 @@ export default function ShopScreen(): JSX.Element {
   const renderFixedHeader = () => (
     <View className="bg-white border-b border-gray-100/50">
       {/* Top Title Bar */}
-      <View className="bg-white" style={{ paddingTop: safeTop }}>
+      <View className="bg-[#0F4C92]" style={{ paddingTop: safeTop }}>
         <View className="flex-row-reverse items-center px-6 py-2.5">
-          <Text className="text-lg font-bold text-gray-900 text-right">تصفح المنتجات</Text>
+          <Text className="text-lg font-bold text-white text-right">تصفح المنتجات</Text>
         </View>
       </View>
 
       {/* Search Input Box */}
-      <View className="px-6 pt-3 pb-2 bg-white">
+      <View className="px-6 pt-4 pb-2 bg-white">
         <View className="relative justify-center">
           <TextInput
+            ref={searchInputRef}
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="ابحث عن منتج..."
@@ -243,10 +238,7 @@ export default function ShopScreen(): JSX.Element {
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
-          data={[
-            { id: null, name: "الكل" },
-            ...categories,
-          ]}
+          data={[{ id: null, name: "الكل" }, ...categories]}
           keyExtractor={(item) => (item.id === null ? "all" : item.id.toString())}
           contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
           inverted
@@ -257,54 +249,21 @@ export default function ShopScreen(): JSX.Element {
                 onPress={() => handleCategoryPress(item.id)}
                 activeOpacity={0.8}
                 className={`flex-row items-center gap-1 px-3 py-1.5 rounded-full border ${
-                  isSelected
-                    ? "bg-[#0F4C92] border-[#0F4C92]"
-                    : "bg-white border-gray-200"
+                  isSelected ? "bg-[#0F4C92] border-[#0F4C92]" : "bg-white border-gray-200"
                 }`}
               >
                 {item.id !== null && (
-                  <StyledTag
-                    size={12}
-                    className={isSelected ? "text-white" : "text-gray-400"}
-                  />
+                  <StyledTag size={12} className={isSelected ? "text-white" : "text-gray-400"} />
                 )}
                 <Text
-                  className={`text-[11px] font-bold ${
-                    isSelected ? "text-white" : "text-gray-600"
-                  }`}
+                  className={`text-[11px] font-bold ${isSelected ? "text-white" : "text-gray-600"}`}
                 >
                   {item.name}
                 </Text>
               </TouchableOpacity>
             );
           }}
-          ListHeaderComponent={
-            <TouchableOpacity
-              onPress={handlePriceSortPress}
-              activeOpacity={0.8}
-              className={`flex-row items-center gap-1 px-3 py-1.5 rounded-full border mr-2 ${
-                priceSort !== "none"
-                  ? "bg-[#0F4C92] border-[#0F4C92]"
-                  : "bg-white border-gray-200"
-              }`}
-            >
-              <StyledSlidersHorizontal
-                size={12}
-                className={priceSort !== "none" ? "text-white" : "text-gray-600"}
-              />
-              <Text
-                className={`text-[11px] font-bold ${
-                  priceSort !== "none" ? "text-white" : "text-gray-600"
-                }`}
-              >
-                {priceSort === "none"
-                  ? "فلتر السعر"
-                  : priceSort === "asc"
-                    ? "السعر: تصاعدي"
-                    : "السعر: تنازلي"}
-              </Text>
-            </TouchableOpacity>
-          }
+
         />
       </View>
     </View>
@@ -314,7 +273,7 @@ export default function ShopScreen(): JSX.Element {
   if (isLoading && !isRefetching) {
     return (
       <View className="flex-1 bg-white">
-        <StatusBar style="dark" />
+        <StatusBar style="light" />
         {renderFixedHeader()}
         <View className="flex-1 bg-white px-4 pt-3">
           <FlatList
@@ -334,7 +293,7 @@ export default function ShopScreen(): JSX.Element {
   if (isError) {
     return (
       <View className="flex-1 bg-white justify-center items-center px-6">
-        <StatusBar style="dark" />
+        <StatusBar style="light" />
         <StyledAlertCircle size={56} className="text-red-500 mb-4" />
         <Text className="text-red-600 font-black text-lg mb-2 text-center">
           حدث خطأ أثناء تحميل المنتجات
@@ -354,7 +313,7 @@ export default function ShopScreen(): JSX.Element {
 
   return (
     <View className="flex-1 bg-white">
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       {renderFixedHeader()}
 
       <View className="flex-1 bg-white">
@@ -373,13 +332,13 @@ export default function ShopScreen(): JSX.Element {
           renderItem={({ item }) => {
             const catName =
               item.categoryName ||
-              (item.categoryId
-                ? categories.find((c) => c.id === item.categoryId)?.name
-                : null) ||
+              (item.categoryId ? categories.find((c) => c.id === item.categoryId)?.name : null) ||
               categoryMap[item.id] ||
               (selectedCategoryId
                 ? categories.find((c) => c.id === selectedCategoryId)?.name
                 : null);
+
+            const isInCart = items.some((cartItem) => cartItem.productId === item.id);
 
             return (
               <TouchableOpacity
@@ -402,35 +361,38 @@ export default function ShopScreen(): JSX.Element {
                       <StyledPackage size={22} className="text-gray-400" />
                     </View>
                   )}
+
+                  {/* Blue Circular Plus / Green Check Action Button for Add to Cart (Absolute Positioned over Image) */}
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleAddToCart(item);
+                    }}
+                    activeOpacity={0.8}
+                    className={`w-8 h-8 rounded-xl items-center justify-center shadow-xs active:opacity-85 absolute bottom-2 left-2 z-10 ${
+                      isInCart ? "bg-green-600" : "bg-[#0F4C92]"
+                    }`}
+                  >
+                    {isInCart ? (
+                      <ShoppingCart size={13} color="#ffffff" strokeWidth={2.5} />
+                    ) : (
+                      <Plus size={16} color="#ffffff" strokeWidth={2.5} />
+                    )}
+                  </TouchableOpacity>
                 </View>
 
                 {/* Card Content */}
                 <View className="p-3">
-                  {/* Details & Action button row */}
-                  <View className="flex-row-reverse justify-between items-end w-full">
-                    <View className="items-end flex-1 pl-1">
-                      <Text
-                        className="font-extrabold text-gray-900 text-xs text-right mb-0.5 w-full"
-                        numberOfLines={1}
-                      >
-                        {item.name}
-                      </Text>
-                      <Text className="font-black text-[#0F4C92] text-xs text-right">
-                        {item.price} {getCurrencySymbol(item.currencyId)}
-                      </Text>
-                    </View>
-
-                    {/* Blue Circular Plus Action Button for Add to Cart */}
-                    <TouchableOpacity
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleAddToCart(item);
-                      }}
-                      activeOpacity={0.8}
-                      className="w-8 h-8 rounded-full bg-[#0F4C92] items-center justify-center shadow-xs active:opacity-80"
+                  <View className="items-end w-full">
+                    <Text
+                      className="font-extrabold text-gray-900 text-xs text-right mb-0.5 w-full"
+                      numberOfLines={1}
                     >
-                      <Plus size={16} color="#ffffff" strokeWidth={2.5} />
-                    </TouchableOpacity>
+                      {item.name}
+                    </Text>
+                    <Text className="font-black text-[#0F4C92] text-xs text-right">
+                      {item.price} {getCurrencySymbol(item.currencyId)}
+                    </Text>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -459,11 +421,7 @@ export default function ShopScreen(): JSX.Element {
             ) : null
           }
           refreshControl={
-            <RefreshControl
-              refreshing={isRefetching}
-              onRefresh={refetch}
-              colors={["#0F4C92"]}
-            />
+            <RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={["#0F4C92"]} />
           }
         />
       </View>

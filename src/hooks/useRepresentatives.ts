@@ -5,10 +5,10 @@ import { Representative, UserActionResponse, UpdateProfileRequest } from "../typ
 /**
  * Hook to retrieve the list of representatives.
  */
-export const useRepresentativesQuery = () => {
+export const useRepresentativesQuery = (search?: string) => {
   return useQuery<Representative[], Error>({
-    queryKey: ["representatives"],
-    queryFn: () => userService.getRepresentatives(),
+    queryKey: ["representatives", search],
+    queryFn: () => userService.getRepresentatives(search),
   });
 };
 
@@ -23,6 +23,7 @@ export const useApproveRepresentativeMutation = () => {
     onSuccess: () => {
       // Invalidate the representatives list to trigger a refetch
       queryClient.invalidateQueries({ queryKey: ["representatives"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
     },
   });
 };
@@ -38,6 +39,7 @@ export const useSuspendRepresentativeMutation = () => {
     onSuccess: () => {
       // Invalidate the representatives list to trigger a refetch
       queryClient.invalidateQueries({ queryKey: ["representatives"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
     },
   });
 };

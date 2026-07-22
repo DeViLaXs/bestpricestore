@@ -1,11 +1,6 @@
 import type { JSX } from "react";
-import { useEffect } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-} from "react-native";
+import { useEffect, useCallback } from "react";
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from "react-native";
 import {
   TrendingUp,
   Package,
@@ -15,7 +10,7 @@ import {
   AlertTriangle,
 } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useAuth } from "../../../hooks/useAuth";
 import { useAdminDashboardQuery } from "../../../hooks/useAdminDashboard";
@@ -33,12 +28,14 @@ export default function AdminDashboardScreen(): JSX.Element {
   }, [user, isAdmin]);
 
   // Single Admin Dashboard Query
-  const {
-    data: stats,
-    isLoading,
-    refetch,
-    isRefetching,
-  } = useAdminDashboardQuery();
+  const { data: stats, isLoading, refetch, isRefetching } = useAdminDashboardQuery();
+
+  // Auto refetch when page gets focus
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   const handleRefresh = async () => {
     await refetch();
@@ -49,11 +46,11 @@ export default function AdminDashboardScreen(): JSX.Element {
   if (isLoading && !isRefetching) {
     return (
       <View className="flex-1 bg-[#f8fafd]">
-        <StatusBar style="dark" />
-        {/* Clean White Header Banner */}
-        <View className="bg-white border-b border-gray-100/50" style={{ paddingTop: safeTop }}>
+        <StatusBar style="light" />
+        {/* Clean Blue Header Banner */}
+        <View className="bg-[#0F4C92]" style={{ paddingTop: safeTop }}>
           <View className="flex-row-reverse items-center px-6 py-2.5">
-            <Text className="text-lg font-bold text-gray-900 text-right">الرئيسية</Text>
+            <Text className="text-xl font-bold text-white text-right">الرئيسية</Text>
           </View>
         </View>
         <DashboardSkeleton />
@@ -76,12 +73,12 @@ export default function AdminDashboardScreen(): JSX.Element {
 
   return (
     <View className="flex-1 bg-[#f8fafd]">
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
-      {/* Clean White Header Banner */}
-      <View className="bg-white border-b border-gray-100/50" style={{ paddingTop: safeTop }}>
+      {/* Clean Blue Header Banner */}
+      <View className="bg-[#0F4C92]" style={{ paddingTop: safeTop }}>
         <View className="flex-row-reverse items-center px-6 py-2.5">
-          <Text className="text-lg font-bold text-gray-900 text-right">الرئيسية</Text>
+          <Text className="text-lg font-bold text-white text-right">الرئيسية</Text>
         </View>
       </View>
 
@@ -92,15 +89,11 @@ export default function AdminDashboardScreen(): JSX.Element {
           paddingHorizontal: 16,
           paddingTop: 16,
         }}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} />}
       >
         {/* Refresh button or status */}
         <View className="flex-row-reverse justify-between items-center mb-4">
-          <Text className="text-sm font-bold text-gray-800">إحصائيات النظام</Text>
-          <TouchableOpacity onPress={handleRefresh} disabled={isRefetching}>
-            <Text className="text-xs font-bold text-[#0F4C92]">
-              {isRefetching ? "جاري التحديث..." : "تحديث البيانات"}
-            </Text>
-          </TouchableOpacity>
+          <Text className="text-base font-bold text-gray-800">إحصائيات النظام</Text>
         </View>
 
         {/* Sales Cards Row */}
@@ -108,10 +101,10 @@ export default function AdminDashboardScreen(): JSX.Element {
           {/* YER Sales */}
           <View className="flex-1 bg-white p-3.5 rounded-2xl border border-gray-100 shadow-xs items-end">
             <View className="w-8 h-8 rounded-xl bg-emerald-50 items-center justify-center mb-2">
-              <TrendingUp size={16} className="text-emerald-600" />
+              <DollarSign size={16} className="text-emerald-600" />
             </View>
-            <Text className="text-[10px] font-bold text-gray-400">إجمالي المبيعات (ريال يمني)</Text>
-            <Text className="text-sm font-black text-gray-800 mt-1 text-right" numberOfLines={1}>
+            <Text className="text-[11px] font-bold text-gray-400">إجمالي المبيعات (ريال يمني)</Text>
+            <Text className="text-base font-black text-gray-800 mt-1 text-right" numberOfLines={1}>
               {totalSalesYer.toLocaleString("en-US")}
             </Text>
           </View>
@@ -121,107 +114,151 @@ export default function AdminDashboardScreen(): JSX.Element {
             <View className="w-8 h-8 rounded-xl bg-emerald-50 items-center justify-center mb-2">
               <DollarSign size={16} className="text-emerald-600" />
             </View>
-            <Text className="text-[10px] font-bold text-gray-400">إجمالي المبيعات (ريال سعودي)</Text>
-            <Text className="text-sm font-black text-gray-800 mt-1 text-right" numberOfLines={1}>
+            <Text className="text-[11px] font-bold text-gray-400">
+              إجمالي المبيعات (ريال سعودي)
+            </Text>
+            <Text className="text-base font-black text-gray-800 mt-1 text-right" numberOfLines={1}>
               {totalSalesSar.toLocaleString("en-US")}
             </Text>
           </View>
         </View>
 
         {/* Orders Status Grid Title */}
-        <Text className="text-xs font-extrabold text-gray-400 text-right mb-2">ملخص الطلبات</Text>
+        <Text className="text-sm font-extrabold text-gray-400 text-right mb-2">ملخص الطلبات</Text>
 
         {/* Orders Status Grid */}
         <View className="bg-white rounded-2xl p-4 border border-gray-100 shadow-xs gap-3 mb-4">
-          <View className="flex-row-reverse items-center justify-between">
+          <TouchableOpacity
+            onPress={() => router.push("/admin/orders" as any)}
+            activeOpacity={0.7}
+            className="flex-row-reverse items-center justify-between"
+          >
             <View className="flex-row-reverse items-center gap-2">
               <View className="w-7 h-7 rounded-lg bg-blue-50 items-center justify-center">
                 <ShoppingBag size={14} className="text-[#0F4C92]" />
               </View>
-              <Text className="text-xs font-bold text-gray-700">إجمالي الطلبات</Text>
+              <Text className="text-sm font-bold text-gray-700">إجمالي الطلبات</Text>
             </View>
-            <Text className="text-xs font-extrabold text-gray-900">{totalOrders}</Text>
-          </View>
+            <Text className="text-sm font-extrabold text-gray-900">{totalOrders}</Text>
+          </TouchableOpacity>
 
           <View className="h-[1px] bg-gray-50" />
 
           {/* Grid list of details */}
           <View className="flex-row-reverse flex-wrap gap-2.5">
             {/* Pending Review */}
-            <View className="w-[48%] bg-gray-50/50 p-2.5 rounded-xl border border-gray-100/50 items-end">
-              <Text className="text-[9px] font-bold text-gray-400">قيد المراجعة</Text>
-              <Text className="text-sm font-black text-amber-600 mt-0.5">{pendingOrdersCount}</Text>
-            </View>
+            <TouchableOpacity
+              onPress={() => router.push("/admin/orders?statusId=1" as any)}
+              activeOpacity={0.7}
+              className="w-[48%] bg-gray-50/50 p-2.5 rounded-xl border border-gray-100/50 items-end"
+            >
+              <Text className="text-[11px] font-bold text-gray-400">قيد المراجعة</Text>
+              <Text className="text-base font-black text-amber-600 mt-0.5">{pendingOrdersCount}</Text>
+            </TouchableOpacity>
 
             {/* Processing */}
-            <View className="w-[48%] bg-gray-50/50 p-2.5 rounded-xl border border-gray-100/50 items-end">
-              <Text className="text-[9px] font-bold text-gray-400">قيد المعالجة</Text>
-              <Text className="text-sm font-black text-[#0F4C92] mt-0.5">{processingOrdersCount}</Text>
-            </View>
+            <TouchableOpacity
+              onPress={() => router.push("/admin/orders?statusId=2" as any)}
+              activeOpacity={0.7}
+              className="w-[48%] bg-gray-50/50 p-2.5 rounded-xl border border-gray-100/50 items-end"
+            >
+              <Text className="text-[11px] font-bold text-gray-400">قيد المعالجة</Text>
+              <Text className="text-base font-black text-[#0F4C92] mt-0.5">
+                {processingOrdersCount}
+              </Text>
+            </TouchableOpacity>
 
             {/* Shipped */}
-            <View className="w-[48%] bg-gray-50/50 p-2.5 rounded-xl border border-gray-100/50 items-end">
-              <Text className="text-[9px] font-bold text-gray-400">تم الشحن</Text>
-              <Text className="text-sm font-black text-blue-500 mt-0.5">{shippedOrdersCount}</Text>
-            </View>
+            <TouchableOpacity
+              onPress={() => router.push("/admin/orders?statusId=3" as any)}
+              activeOpacity={0.7}
+              className="w-[48%] bg-gray-50/50 p-2.5 rounded-xl border border-gray-100/50 items-end"
+            >
+              <Text className="text-[11px] font-bold text-gray-400">تم الشحن</Text>
+              <Text className="text-base font-black text-blue-500 mt-0.5">{shippedOrdersCount}</Text>
+            </TouchableOpacity>
 
             {/* Delivered */}
-            <View className="w-[48%] bg-gray-50/50 p-2.5 rounded-xl border border-gray-100/50 items-end">
-              <Text className="text-[9px] font-bold text-gray-400">تم التوصيل</Text>
-              <Text className="text-sm font-black text-emerald-600 mt-0.5">{deliveredOrdersCount}</Text>
-            </View>
+            <TouchableOpacity
+              onPress={() => router.push("/admin/orders?statusId=4" as any)}
+              activeOpacity={0.7}
+              className="w-[48%] bg-gray-50/50 p-2.5 rounded-xl border border-gray-100/50 items-end"
+            >
+              <Text className="text-[11px] font-bold text-gray-400">تم التوصيل</Text>
+              <Text className="text-base font-black text-emerald-600 mt-0.5">
+                {deliveredOrdersCount}
+              </Text>
+            </TouchableOpacity>
 
             {/* Cancelled */}
-            <View className="w-[48%] bg-gray-50/50 p-2.5 rounded-xl border border-gray-100/50 items-end">
-              <Text className="text-[9px] font-bold text-gray-400">ملغى</Text>
-              <Text className="text-sm font-black text-red-500 mt-0.5">{cancelledOrdersCount}</Text>
-            </View>
+            <TouchableOpacity
+              onPress={() => router.push("/admin/orders?statusId=5" as any)}
+              activeOpacity={0.7}
+              className="w-[48%] bg-gray-50/50 p-2.5 rounded-xl border border-gray-100/50 items-end"
+            >
+              <Text className="text-[11px] font-bold text-gray-400">ملغى</Text>
+              <Text className="text-base font-black text-red-500 mt-0.5">{cancelledOrdersCount}</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
         {/* Inventory & Representatives Grid Title */}
-        <Text className="text-xs font-extrabold text-gray-400 text-right mb-2">المخزون والمندوبين</Text>
+        <Text className="text-sm font-extrabold text-gray-400 text-right mb-2">
+          المخزون والمندوبين
+        </Text>
 
         {/* Inventory & Representatives Grid */}
         <View className="bg-white rounded-2xl p-4 border border-gray-100 shadow-xs gap-3">
           {/* Total Active Products */}
-          <View className="flex-row-reverse items-center justify-between">
+          <TouchableOpacity
+            onPress={() => router.push("/admin/products" as any)}
+            activeOpacity={0.7}
+            className="flex-row-reverse items-center justify-between"
+          >
             <View className="flex-row-reverse items-center gap-2">
               <View className="w-7 h-7 rounded-lg bg-blue-50 items-center justify-center">
                 <Package size={14} className="text-[#0F4C92]" />
               </View>
-              <Text className="text-xs font-bold text-gray-700">إجمالي المنتجات المعروضة</Text>
+              <Text className="text-sm font-bold text-gray-700">إجمالي المنتجات المعروضة</Text>
             </View>
-            <Text className="text-xs font-extrabold text-gray-900">{totalActiveProducts}</Text>
-          </View>
+            <Text className="text-sm font-extrabold text-gray-900">{totalActiveProducts}</Text>
+          </TouchableOpacity>
 
           <View className="h-[1px] bg-gray-50" />
 
           {/* Out of Stock Products */}
-          <View className="flex-row-reverse items-center justify-between">
+          <TouchableOpacity
+            onPress={() => router.push("/admin/products" as any)}
+            activeOpacity={0.7}
+            className="flex-row-reverse items-center justify-between"
+          >
             <View className="flex-row-reverse items-center gap-2">
               <View className="w-7 h-7 rounded-lg bg-amber-50 items-center justify-center">
                 <AlertTriangle size={14} className="text-amber-600" />
               </View>
-              <Text className="text-xs font-bold text-gray-700">منتجات نفد مخزونها</Text>
+              <Text className="text-sm font-bold text-gray-700">منتجات نفد مخزونها</Text>
             </View>
-            <Text className="text-xs font-extrabold text-amber-600">{outOfStockProductsCount}</Text>
-          </View>
+            <Text className="text-sm font-extrabold text-amber-600">{outOfStockProductsCount}</Text>
+          </TouchableOpacity>
 
           <View className="h-[1px] bg-gray-50" />
 
           {/* Total & Active Representatives */}
-          <View className="flex-row-reverse items-center justify-between">
+          <TouchableOpacity
+            onPress={() => router.push("/admin/representatives" as any)}
+            activeOpacity={0.7}
+            className="flex-row-reverse items-center justify-between"
+          >
             <View className="flex-row-reverse items-center gap-2">
               <View className="w-7 h-7 rounded-lg bg-blue-50 items-center justify-center">
                 <Users size={14} className="text-[#0F4C92]" />
               </View>
-              <Text className="text-xs font-bold text-gray-700">إجمالي المندوبين</Text>
+              <Text className="text-sm font-bold text-gray-700">إجمالي المندوبين</Text>
             </View>
-            <Text className="text-xs font-extrabold text-gray-900">
+            <Text className="text-sm font-extrabold text-gray-900">
               {totalRepresentatives} ({activeRepresentatives} نشط)
             </Text>
-          </View>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>

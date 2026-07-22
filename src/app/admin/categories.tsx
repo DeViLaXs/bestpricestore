@@ -6,15 +6,16 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
-import { Search, AlertCircle, Trash2, Pencil, Plus, ArrowLeft, Tag } from "lucide-react-native";
+import { Search, AlertCircle, Trash2, Pencil, Plus, ArrowLeft, Tag, Check } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useAuth } from "../../hooks/useAuth";
+import { useAlert } from "../../contexts/AlertContext";
+import { useAppToast } from "../../hooks/useAppToast";
 import {
   useCategoriesQuery,
   useCreateCategoryMutation,
@@ -27,6 +28,8 @@ import CategoryListSkeleton from "../../components/CategoryListSkeleton";
 export default function CategoriesScreen(): JSX.Element {
   const insets = useSafeAreaInsets();
   const { user, isAdmin } = useAuth();
+  const { showAlert } = useAlert();
+  const { showSuccessToast, showErrorToast, showWarningToast } = useAppToast();
 
   // Route guard: only allow users with Admin role or credentials
   useEffect(() => {
@@ -41,31 +44,40 @@ export default function CategoriesScreen(): JSX.Element {
 
   // Search State
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // Debounce search query to optimize API requests
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
   // API Query & Mutations
-  const { data: categories = [], isLoading, error, refetch, isRefetching } = useCategoriesQuery();
+  const { data: categories = [], isLoading, error, refetch, isRefetching } = useCategoriesQuery(debouncedSearch);
   const createMutation = useCreateCategoryMutation();
   const updateMutation = useUpdateCategoryMutation();
   const deleteMutation = useDeleteCategoryMutation();
-
-  const filteredCategories = useMemo(() => {
-    const cats = Array.isArray(categories) ? categories : [];
-    if (!searchQuery.trim()) return cats;
-    const query = searchQuery.toLowerCase().trim();
-    return cats.filter(
-      (cat) =>
-        cat &&
-        String(cat.name || "")
-          .toLowerCase()
-          .includes(query)
-    );
-  }, [categories, searchQuery]);
 
   // Handle Add / Edit submit
   const handleSaveCategory = async () => {
     const trimmedName = categoryName.trim();
     if (!trimmedName) {
-      Alert.alert("تنبيه", "يرجى إدخال اسم الفئة.");
+      showWarningToast("تنبيه", "يرجى إدخال اسم الفئة.");
+      return;
+    }
+
+    // Client-side uniqueness check
+    const nameExistsLocally = categories.some(
+      (cat) =>
+        cat &&
+        cat.name.trim().toLowerCase() === trimmedName.toLowerCase() &&
+        (!editingCategory || cat.id !== editingCategory.id)
+    );
+
+    if (nameExistsLocally) {
+      showWarningToast("تنبيه", "اسم الفئة موجود بالفعل.");
       return;
     }
 
@@ -73,16 +85,17 @@ export default function CategoriesScreen(): JSX.Element {
       if (editingCategory) {
         // Edit Action
         await updateMutation.mutateAsync({ id: editingCategory.id, name: trimmedName });
-        Alert.alert("نجاح", "تم تحديث الفئة بنجاح.");
+        showSuccessToast("نجاح", "تم تحديث الفئة بنجاح.");
         setEditingCategory(null);
       } else {
         // Create Action
         await createMutation.mutateAsync(trimmedName);
-        Alert.alert("نجاح", "تم إضافة الفئة بنجاح.");
+        showSuccessToast("نجاح", "تم إضافة الفئة بنجاح.");
       }
       setCategoryName("");
+      refetch();
     } catch (err: any) {
-      Alert.alert("خطأ", err.message || "فشلت العملية. يرجى المحاولة مرة أخرى.");
+      showErrorToast("خطأ", err.message || "فشلت العملية. يرجى المحاولة مرة أخرى.");
     }
   };
 
@@ -100,9 +113,9 @@ export default function CategoriesScreen(): JSX.Element {
 
   // Delete Category
   const handleDeleteCategory = (category: Category) => {
-    Alert.alert(
+    showAlert(
       "حذف الفئة",
-      `هل أنت متأكد من رغبتك في حذف الفئة "${category.name}"؟\nتنبيه: سيؤدي هذا إلى حذف جميع المنتجات المرتبطة بها.`,
+      `هل أنت متأكد من رغبتك في حذف الفئة "${category.name}"؟`,
       [
         { text: "إلغاء", style: "cancel" },
         {
@@ -111,17 +124,28 @@ export default function CategoriesScreen(): JSX.Element {
           onPress: async () => {
             try {
               await deleteMutation.mutateAsync(category.id);
-              Alert.alert("نجاح", "تم حذف الفئة بنجاح.");
+              showSuccessToast("نجاح", "تم حذف الفئة بنجاح.");
               if (editingCategory?.id === category.id) {
                 handleCancelEdit();
               }
+              refetch();
             } catch (err: any) {
-              Alert.alert("خطأ", err.message || "فشلت عملية حذف الفئة.");
+              const errorMessage = err.message || "";
+              const isConstraintError =
+                err.response?.status === 500 ||
+                errorMessage.includes("500") ||
+                errorMessage.includes("foreign key") ||
+                errorMessage.includes("constraint");
+              
+              if (isConstraintError) {
+                showErrorToast("خطأ", "لا يمكن حذف هذه الفئة لوجود منتجات مرتبطة بها.");
+              } else {
+                showErrorToast("خطأ", err.message || "فشلت عملية حذف الفئة.");
+              }
             }
           },
         },
-      ],
-      { cancelable: true }
+      ]
     );
   };
 
@@ -129,10 +153,10 @@ export default function CategoriesScreen(): JSX.Element {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#f8fafd" }}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
-      {/* Clean White Header Banner */}
-      <View className="bg-white border-b border-gray-100/50" style={{ paddingTop: safeTop }}>
+      {/* Clean Blue Header Banner */}
+      <View className="bg-[#0F4C92]" style={{ paddingTop: safeTop }}>
         <View className="flex-row items-center justify-between px-6 py-2.5">
           {/* Back Button on Left */}
           <TouchableOpacity
@@ -140,11 +164,11 @@ export default function CategoriesScreen(): JSX.Element {
             className="p-1"
             activeOpacity={0.7}
           >
-            <ArrowLeft size={24} color="#1a202c" />
+            <ArrowLeft size={24} color="#ffffff" />
           </TouchableOpacity>
 
           {/* Title on Right */}
-          <Text className="text-lg font-bold text-gray-900 text-right">إدارة الفئات</Text>
+          <Text className="text-lg font-bold text-white text-right">إدارة الفئات</Text>
         </View>
       </View>
 
@@ -158,6 +182,7 @@ export default function CategoriesScreen(): JSX.Element {
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+          keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={["#0F4C92"]} />
           }
@@ -168,57 +193,55 @@ export default function CategoriesScreen(): JSX.Element {
               {editingCategory ? "تعديل الفئة" : "إضافة فئة جديدة"}
             </Text>
 
-            <TextInput
-              value={categoryName}
-              onChangeText={setCategoryName}
-              placeholder="اسم الفئة"
-              placeholderTextColor="#a0aec0"
-              style={{
-                fontFamily: "System",
-                height: 48,
-                borderRadius: 16,
-                borderWidth: 1.5,
-                borderColor: "#e2e8f0",
-                backgroundColor: "#ffffff",
-                paddingHorizontal: 16,
-                fontSize: 14,
-                color: "#1a202c",
-                fontWeight: "600",
-                textAlign: "right",
-                marginBottom: 12,
-              }}
-            />
-
-            <View className="flex-row items-center justify-between">
-              {editingCategory ? (
-                <TouchableOpacity
-                  onPress={handleCancelEdit}
-                  className="bg-gray-100 px-6 py-2.5 rounded-full"
-                  activeOpacity={0.7}
-                >
-                  <Text className="text-gray-600 font-bold text-xs">إلغاء</Text>
-                </TouchableOpacity>
-              ) : (
-                <View />
-              )}
-
+            <View className="flex-row items-center gap-2">
               <TouchableOpacity
                 onPress={handleSaveCategory}
                 disabled={createMutation.isPending || updateMutation.isPending}
-                className="bg-[#0F4C92] px-6 py-2.5 rounded-full flex-row items-center gap-1.5"
+                className="bg-[#0F4C92] h-12 px-5 rounded-2xl flex-row items-center justify-center gap-1.5"
                 activeOpacity={0.7}
               >
                 {createMutation.isPending || updateMutation.isPending ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
                   <>
-                    <Text className="text-white font-bold text-xs">
-                      {editingCategory ? "حفظ التعديل" : "إضافة الفئة"}
+                    <Text className="text-white font-bold text-sm">
+                      {editingCategory ? "حفظ" : "إضافة"}
                     </Text>
                     {!editingCategory && <Plus size={16} color="#ffffff" />}
                   </>
                 )}
               </TouchableOpacity>
+
+              {editingCategory && (
+                <TouchableOpacity
+                  onPress={handleCancelEdit}
+                  className="bg-gray-100 h-12 px-4 rounded-2xl justify-center items-center"
+                  activeOpacity={0.7}
+                >
+                  <Text className="text-gray-600 font-bold text-sm">إلغاء</Text>
+                </TouchableOpacity>
+              )}
+
+              <TextInput
+                value={categoryName}
+                onChangeText={setCategoryName}
+                placeholder="اسم الفئة"
+                placeholderTextColor="#a0aec0"
+                style={{
+                  fontFamily: "System",
+                  height: 48,
+                  flex: 1,
+                  borderRadius: 16,
+                  borderWidth: 1.5,
+                  borderColor: "#e2e8f0",
+                  backgroundColor: "#ffffff",
+                  paddingHorizontal: 16,
+                  fontSize: 14,
+                  color: "#1a202c",
+                  fontWeight: "600",
+                  textAlign: "right",
+                }}
+              />
             </View>
           </View>
 
@@ -277,16 +300,13 @@ export default function CategoriesScreen(): JSX.Element {
           ) : categories.length === 0 ? (
             <View className="justify-center items-center py-10">
               <Tag size={48} color="#cbd5e1" className="mb-2" />
-              <Text className="text-gray-500 font-bold text-center">لا توجد فئات مسجلة حالياً</Text>
-            </View>
-          ) : filteredCategories.length === 0 ? (
-            <View className="justify-center items-center py-10">
-              <Tag size={48} color="#cbd5e1" className="mb-2" />
-              <Text className="text-gray-500 font-bold text-center">لا توجد فئات مطابقة للبحث</Text>
+              <Text className="text-gray-500 font-bold text-center">
+                {searchQuery.trim() ? "لا توجد فئات مطابقة للبحث" : "لا توجد فئات مسجلة حالياً"}
+              </Text>
             </View>
           ) : (
             <View className="gap-3">
-              {filteredCategories.map((cat) => (
+              {categories.map((cat) => (
                 <View
                   key={cat.id}
                   className="bg-white rounded-2xl p-4 flex-row items-center justify-between shadow-sm border border-gray-50 mx-6"

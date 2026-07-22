@@ -11,7 +11,9 @@ import { useCartStore } from "../../store/cartStore";
 export default function TabsLayout(): JSX.Element | null {
   const { user, isAuthenticated, isAdmin } = useAuth();
   const insets = useSafeAreaInsets();
-  const cartItemsCount = useCartStore((state) => state.items.reduce((sum, item) => sum + item.quantity, 0));
+  const cartItemsCount = useCartStore((state) =>
+    state.items.reduce((sum, item) => sum + item.quantity, 0)
+  );
 
   // Redirect to login if user is not authenticated (only after hydration is complete)
   const hydrated = useAuthStore((state) => state.hydrated);
@@ -35,6 +37,8 @@ export default function TabsLayout(): JSX.Element | null {
 
   return (
     <Tabs
+      initialRouteName="index"
+      backBehavior="history"
       screenOptions={{
         headerShown: false,
       }}
@@ -126,7 +130,7 @@ export default function TabsLayout(): JSX.Element | null {
                 >
                   {renderTabIcon(route.name, isFocused ? activeColor : inactiveColor, 22)}
                   <Text
-                    className="text-[10px] font-semibold mt-1 text-center"
+                    className="text-[11px] font-semibold mt-1 text-center"
                     style={{ color: isFocused ? activeColor : inactiveColor }}
                   >
                     {label}

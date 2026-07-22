@@ -1,7 +1,7 @@
 import type { JSX } from "react";
 import { createContext, useContext, useState, useCallback } from "react";
 import { Modal, View, Text, TouchableOpacity, Animated, StyleSheet } from "react-native";
-import { Check, AlertCircle, HelpCircle, EyeOff } from "lucide-react-native";
+import { Check, AlertCircle, HelpCircle, XCircle } from "lucide-react-native";
 
 export interface AlertButton {
   text: string;
@@ -31,29 +31,36 @@ export function AlertProvider({ children }: { children: React.ReactNode }): JSX.
   const [scaleAnim] = useState(() => new Animated.Value(0.9));
   const [fadeAnim] = useState(() => new Animated.Value(0));
 
-  const showAlert = useCallback((alertTitle: string, alertMessage: string, alertButtons?: AlertButton[]) => {
-    setTitle(alertTitle);
-    setMessage(alertMessage);
-    setButtons(alertButtons || [{ text: "حسنًا", style: "default" }]);
-    setVisible(true);
+  const showAlert = useCallback(
+    (alertTitle: string, alertMessage: string, alertButtons?: AlertButton[]) => {
+      setTitle(alertTitle);
+      setMessage(alertMessage);
+      setButtons(alertButtons || [{ text: "حسنًا", style: "default" }]);
+      setVisible(true);
 
-    // Trigger open animation
-    scaleAnim.setValue(0.9);
-    fadeAnim.setValue(0);
-    Animated.parallel([
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 60,
-        friction: 8,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 180,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [scaleAnim, fadeAnim]);
+      // Reset animations
+      scaleAnim.setValue(0.9);
+      fadeAnim.setValue(0);
+
+      // Run animation on next frame to allow the Modal layout to mount first, eliminating jank
+      requestAnimationFrame(() => {
+        Animated.parallel([
+          Animated.spring(scaleAnim, {
+            toValue: 1,
+            damping: 15,
+            stiffness: 120,
+            useNativeDriver: true,
+          }),
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      });
+    },
+    [scaleAnim, fadeAnim]
+  );
 
   const hideAlert = useCallback(() => {
     Animated.parallel([
@@ -88,9 +95,14 @@ export function AlertProvider({ children }: { children: React.ReactNode }): JSX.
     const titleLower = title.toLowerCase();
     const hasDestructive = buttons.some((btn) => btn.style === "destructive");
 
-    if (titleLower.includes("إخفاء") || titleLower.includes("حذف") || titleLower.includes("إلغاء") || hasDestructive) {
+    if (
+      titleLower.includes("إخفاء") ||
+      titleLower.includes("حذف") ||
+      titleLower.includes("إلغاء") ||
+      hasDestructive
+    ) {
       return {
-        icon: <EyeOff size={26} color="#dc2626" />,
+        icon: <XCircle size={26} color="#dc2626" />,
         bgColor: "bg-red-50",
       };
     }
@@ -125,14 +137,9 @@ export function AlertProvider({ children }: { children: React.ReactNode }): JSX.
     <AlertContext.Provider value={{ showAlert }}>
       {children}
 
-      <Modal
-        transparent
-        visible={visible}
-        animationType="none"
-        onRequestClose={hideAlert}
-      >
+      <Modal transparent visible={visible} animationType="none" onRequestClose={hideAlert}>
         {/* Semi-transparent backdrop overlay */}
-        <Animated.View 
+        <Animated.View
           className="flex-1 bg-black/50 justify-center items-center px-6"
           style={{ opacity: fadeAnim }}
         >
@@ -143,11 +150,13 @@ export function AlertProvider({ children }: { children: React.ReactNode }): JSX.
               styles.cardShadow,
               {
                 transform: [{ scale: scaleAnim }],
-              }
+              },
             ]}
           >
             {/* Themed Icon Header */}
-            <View className={`w-14 h-14 rounded-full justify-center items-center mb-4 ${theme.bgColor}`}>
+            <View
+              className={`w-14 h-14 rounded-full justify-center items-center mb-4 ${theme.bgColor}`}
+            >
               {theme.icon}
             </View>
 
@@ -177,7 +186,7 @@ export function AlertProvider({ children }: { children: React.ReactNode }): JSX.
                 {buttons.map((btn, idx) => {
                   const isDestructive = btn.style === "destructive";
                   const isCancel = btn.style === "cancel";
-                  
+
                   let btnBg = "bg-[#0F4C92]";
                   let textColor = "text-white";
 

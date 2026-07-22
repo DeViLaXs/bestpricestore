@@ -29,6 +29,7 @@ export default function AdminTabsLayout(): JSX.Element | null {
 
   return (
     <Tabs
+      backBehavior="history"
       screenOptions={{
         headerShown: false,
       }}
@@ -39,18 +40,23 @@ export default function AdminTabsLayout(): JSX.Element | null {
         const activeColor = "#0F4C92"; // Blue active tab color
         const inactiveColor = "#9ca3af"; // Gray inactive color
 
-        const renderTabIcon = (routeName: string, color: string, size: number, isFocused: boolean) => {
+        const renderTabIcon = (
+          routeName: string,
+          color: string,
+          size: number,
+          isFocused: boolean
+        ) => {
           switch (routeName) {
             case "dashboard":
-              return <Home color={color}  size={size} />;
+              return <Home color={color} size={size} />;
             case "orders":
-              return <ClipboardList color={color}  size={size} />;
+              return <ClipboardList color={color} size={size} />;
             case "products":
-              return <LayoutGrid color={color}  size={size} />;
+              return <LayoutGrid color={color} size={size} />;
             case "more":
-              return <MoreHorizontal color={color}  size={size} />;
+              return <MoreHorizontal color={color} size={size} />;
             default:
-              return <Home color={color}  size={size} />;
+              return <Home color={color} size={size} />;
           }
         };
 
@@ -111,7 +117,7 @@ export default function AdminTabsLayout(): JSX.Element | null {
             >
               {renderTabIcon(route.name, isFocused ? activeColor : inactiveColor, 22, isFocused)}
               <Text
-                className="text-[10px] font-bold mt-1 text-center"
+                className="text-[11px] font-bold mt-1 text-center"
                 style={{ color: isFocused ? activeColor : inactiveColor }}
               >
                 {getLabel(route.name)}

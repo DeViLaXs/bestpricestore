@@ -9,7 +9,20 @@ import {
   Image,
   RefreshControl,
 } from "react-native";
-import { Bell, Search, Flame, Sparkles, Package, ChevronLeft, Plus, Star, Tag } from "lucide-react-native";
+import {
+  Bell,
+  Search,
+  Flame,
+  Sparkles,
+  Package,
+  ChevronLeft,
+  Plus,
+  Star,
+  Tag,
+  Check,
+  AlertCircle,
+  ShoppingCart,
+} from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Rect, Path, Circle, Line } from "react-native-svg";
 import { router, useFocusEffect } from "expo-router";
@@ -18,8 +31,11 @@ import {
   useLatestProductsQuery,
   useTopSellingProductsQuery,
   useCurrenciesQuery,
+  useGetProductDetails,
 } from "../../hooks/useProducts";
 import { useCategoriesQuery } from "../../hooks/useCategories";
+import { useCartStore } from "../../store/cartStore";
+import { useAppToast } from "../../hooks/useAppToast";
 
 // SVG Category Icons matching the mockup designs
 const DuvetIcon = (): JSX.Element => (
@@ -94,8 +110,57 @@ const ProductWidgetSkeleton = (): JSX.Element => (
 export default function HomeScreen(): JSX.Element {
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState("");
+  const cartItems = useCartStore((state) => state.items);
 
   const safeTop = insets.top > 0 ? insets.top : 47;
+  const { showSuccessToast, showErrorToast } = useAppToast();
+  const getProductDetails = useGetProductDetails();
+
+  // Add product to cart action
+  const handleAddToCart = async (productItem: any) => {
+    try {
+      const detailedProduct = await getProductDetails(productItem.id);
+      if (!detailedProduct || !detailedProduct.images || detailedProduct.images.length === 0) {
+        showErrorToast("خطأ", "عذرًا، لا تتوفر تفاصيل أو صور لهذا المنتج حاليًا.");
+        return;
+      }
+
+      const primaryImage =
+        detailedProduct.images.find((img) => img.isPrimary) || detailedProduct.images[0];
+      if (!primaryImage) {
+        showErrorToast("خطأ", "لا توجد تفاصيل المخزن لهذا المنتج.");
+        return;
+      }
+
+      if (primaryImage.quantityInStock <= 0) {
+        showErrorToast("تنبيه", "عذرًا، هذا المنتج غير متوفر في المخزن حاليًا.");
+        return;
+      }
+
+      const cartStore = useCartStore.getState();
+      const result = cartStore.addItem(
+        {
+          productId: detailedProduct.id,
+          productImageId: primaryImage.id,
+          name: detailedProduct.name,
+          price: detailedProduct.price,
+          currencyId: detailedProduct.currencyId,
+          currencyName: detailedProduct.currencyName || "ريال سعودي",
+          imageUrl: primaryImage.imageUrl,
+          quantityInStock: primaryImage.quantityInStock,
+        },
+        1
+      );
+
+      if (result.success) {
+        showSuccessToast("تم الإضافة", `تم إضافة "${detailedProduct.name}" إلى السلة بنجاح.`);
+      } else {
+        showErrorToast("تنبيه", result.error || "تعذر إضافة المنتج بالسلة.");
+      }
+    } catch {
+      showErrorToast("خطأ", "فشلت عملية إضافة المنتج للسلة، يرجى المحاولة لاحقًا.");
+    }
+  };
 
   // API Queries for Product Widgets & Currency lookup
   const {
@@ -154,48 +219,18 @@ export default function HomeScreen(): JSX.Element {
 
   return (
     <View className="flex-1 bg-white">
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
-      {/* Clean White Header Banner */}
-      <View className="bg-white border-b border-gray-100/50" style={{ paddingTop: safeTop }}>
+      {/* Clean Blue Header Banner */}
+      <View className="bg-[#0F4C92]" style={{ paddingTop: safeTop }}>
         <View className="flex-row-reverse items-center justify-between px-6 py-2.5">
-          <Text className="text-lg font-bold text-gray-900 text-right">الشاشة الرئيسية</Text>
-          {/* Notification bell on left */}
-          <TouchableOpacity className="relative p-1" activeOpacity={0.7}>
-            <Bell size={22} color="#0F4C92" />
-            <View
-              style={{
-                position: "absolute",
-                right: 0,
-                top: 0,
-                backgroundColor: "#e53e3e",
-                width: 14,
-                height: 14,
-                borderRadius: 7,
-                alignItems: "center",
-                justifyContent: "center",
-                borderWidth: 1.5,
-                borderColor: "#ffffff",
-              }}
-            >
-              <Text
-                style={{
-                  color: "#ffffff",
-                  fontSize: 8,
-                  fontWeight: "900",
-                  lineHeight: 10,
-                }}
-              >
-                1
-              </Text>
-            </View>
-          </TouchableOpacity>
+          <Text className="text-lg font-bold text-white text-right">الشاشة الرئيسية</Text>
         </View>
       </View>
 
       <ScrollView
         contentContainerStyle={{
-          paddingTop: 12,
+          paddingTop: 16,
           paddingBottom: insets.bottom + 90, // Ensure space for the custom tab bar
           paddingHorizontal: 20,
         }}
@@ -210,48 +245,36 @@ export default function HomeScreen(): JSX.Element {
         }
       >
         {/* Search and Filter Row */}
-        <View className="flex-row items-center gap-3.5 mb-6 mt-2">
-          {/* Filter Circular Button (Left) */}
+        <View className="flex-row items-center gap-3.5 mb-6 mt-0">
+          {/* Search Input Box (Full Width) */}
           <TouchableOpacity
-            onPress={() => router.push("/shop")}
-            className="w-10 h-10 rounded-xl bg-[#0F4C92] items-center justify-center shadow-sm active:opacity-85"
-            activeOpacity={0.85}
+            onPress={() => router.push({ pathname: "/shop", params: { focusSearch: "true" } })}
+            activeOpacity={0.9}
+            className="flex-1"
           >
-            <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <Path d="M4 6H20" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-              <Path d="M6 12H18" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-              <Path d="M9 18H15" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-            </Svg>
+            <View pointerEvents="none" className="relative justify-center">
+              <TextInput
+                editable={false}
+                value={searchQuery}
+                placeholder="ابحث عن منتج..."
+                placeholderTextColor="#a0aec0"
+                className="h-10 rounded-xl border-[1.5px] border-gray-200 bg-white pr-10 pl-4 text-xs text-gray-800 font-semibold text-right"
+              />
+              <Search size={18} color="#a0aec0" style={{ position: "absolute", right: 12 }} />
+            </View>
           </TouchableOpacity>
-
-          {/* Search Input Box (Right) */}
-          <View className="flex-1 relative justify-center">
-            <TextInput
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              onSubmitEditing={handleSearchSubmit}
-              placeholder="ابحث عن منتج..."
-              placeholderTextColor="#a0aec0"
-              className="h-10 rounded-xl border-[1.5px] border-gray-200 bg-white pr-10 pl-4 text-xs text-gray-800 font-semibold text-right"
-            />
-            <Search size={18} color="#a0aec0" style={{ position: "absolute", right: 12 }} />
-          </View>
         </View>
 
         {/* 1. Top Selling Products Widget ("الأكثر مبيعاً") */}
-        <View className="mb-6">
+        <View className="mb-10">
           <View className="flex-row-reverse justify-between items-center mb-3">
             <View className="flex-row-reverse items-center gap-1.5">
               <Flame size={18} color="#e53e3e" />
-              <Text className="text-base font-bold text-gray-900 text-right">
-                الأكثر مبيعاً
-              </Text>
+              <Text className="text-base font-bold text-gray-900 text-right">الأكثر مبيعاً</Text>
             </View>
 
             <TouchableOpacity onPress={() => router.push("/shop")} activeOpacity={0.7}>
-              <Text className="text-[#0F4C92] font-extrabold text-xs">
-                عرض الكل
-              </Text>
+              <Text className="text-[#0F4C92] font-extrabold text-xs">عرض الكل</Text>
             </TouchableOpacity>
           </View>
 
@@ -276,35 +299,53 @@ export default function HomeScreen(): JSX.Element {
               contentContainerStyle={{ paddingHorizontal: 20 }}
             >
               <View style={{ transform: [{ scaleX: -1 }], flexDirection: "row", gap: 14 }}>
-                {topSellingProducts.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    onPress={() => router.push(`/product-details?id=${item.id}` as any)}
-                    activeOpacity={0.92}
-                    style={{ width: 165 }}
-                    className="bg-white rounded-3xl border border-gray-100/90 shadow-sm overflow-hidden justify-between"
-                  >
-                    {/* Full-width Image Bleed */}
-                    <View className="w-full h-36 bg-gray-100 relative">
-                      {item.primaryImageUrl ? (
-                        <Image
-                          source={{ uri: item.primaryImageUrl }}
-                          className="w-full h-full"
-                          style={{ width: "100%", height: "100%" }}
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <View className="w-full h-full items-center justify-center">
-                          <Package size={24} color="#a0aec0" />
-                        </View>
-                      )}
-                    </View>
+                {topSellingProducts.map((item) => {
+                  const isInCart = cartItems.some((cartItem) => cartItem.productId === item.id);
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      onPress={() => router.push(`/product-details?id=${item.id}` as any)}
+                      activeOpacity={0.92}
+                      style={{ width: 165 }}
+                      className="bg-white rounded-3xl border border-gray-100/90 shadow-sm overflow-hidden justify-between"
+                    >
+                      {/* Full-width Image Bleed */}
+                      <View className="w-full h-36 bg-gray-100 relative">
+                        {item.primaryImageUrl ? (
+                          <Image
+                            source={{ uri: item.primaryImageUrl }}
+                            className="w-full h-full"
+                            style={{ width: "100%", height: "100%" }}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <View className="w-full h-full items-center justify-center">
+                            <Package size={24} color="#a0aec0" />
+                          </View>
+                        )}
 
-                    {/* Card Content */}
-                    <View className="p-3">
-                      {/* Details & Action button row */}
-                      <View className="flex-row-reverse justify-between items-end w-full">
-                        <View className="items-end flex-1 pl-1">
+                        {/* Blue Circular Plus / Green Check Action Button (Absolute Positioned over Image) */}
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleAddToCart(item);
+                          }}
+                          activeOpacity={0.8}
+                          className={`w-8 h-8 rounded-xl items-center justify-center shadow-xs active:opacity-85 absolute bottom-2 left-2 z-10 ${
+                            isInCart ? "bg-green-600" : "bg-[#0F4C92]"
+                          }`}
+                        >
+                          {isInCart ? (
+                            <ShoppingCart size={13} color="#ffffff" strokeWidth={2.5} />
+                          ) : (
+                            <Plus size={16} color="#ffffff" strokeWidth={2.5} />
+                          )}
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Card Content */}
+                      <View className="p-3">
+                        <View className="items-end w-full">
                           <Text
                             className="font-extrabold text-gray-900 text-xs text-right mb-0.5 w-full"
                             numberOfLines={1}
@@ -315,15 +356,10 @@ export default function HomeScreen(): JSX.Element {
                             {item.price} {getCurrencySymbol(item.currencyId)}
                           </Text>
                         </View>
-
-                        {/* Blue Circular Plus Action Button */}
-                        <View className="w-8 h-8 rounded-full bg-[#0F4C92] items-center justify-center shadow-xs">
-                          <Plus size={16} color="#ffffff" strokeWidth={2.5} />
-                        </View>
                       </View>
-                    </View>
-                  </TouchableOpacity>
-                ))}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </ScrollView>
           ) : (
@@ -336,15 +372,11 @@ export default function HomeScreen(): JSX.Element {
         </View>
 
         {/* Categories Section (Horizontal Scrollable) */}
-        <View className="mb-6">
+        <View className="mb-10">
           <View className="flex-row-reverse justify-between items-center mb-3">
-            <Text className="text-base font-bold text-gray-900 text-right">
-              التصنيفات
-            </Text>
+            <Text className="text-base font-bold text-gray-900 text-right">التصنيفات</Text>
             <TouchableOpacity onPress={() => handleCategoryPress(null)} activeOpacity={0.7}>
-              <Text className="text-[#0F4C92] font-extrabold text-xs">
-                تصفح الكل
-              </Text>
+              <Text className="text-[#0F4C92] font-extrabold text-xs">تصفح الكل</Text>
             </TouchableOpacity>
           </View>
 
@@ -355,66 +387,69 @@ export default function HomeScreen(): JSX.Element {
             style={{ marginHorizontal: -20, transform: [{ scaleX: -1 }] }}
             contentContainerStyle={{ paddingHorizontal: 20 }}
           >
-            <View style={{ transform: [{ scaleX: -1 }], flexDirection: "row", gap: 12 }}>
-              {categories.length > 0 ? (
-                categories.map((cat, idx) => (
-                  <TouchableOpacity
-                    key={cat.id}
-                    onPress={() => handleCategoryPress(cat.id)}
-                    activeOpacity={0.85}
-                    style={{ width: 100, height: 100 }}
-                    className="bg-[#edf3fa]/85 rounded-2xl items-center justify-center p-2 shadow-sm border border-[#e2ecf7]"
-                  >
-                    {idx % 3 === 0 ? <DuvetIcon /> : idx % 3 === 1 ? <PillowIcon /> : <MattressIcon />}
-                    <Text className="text-[#0F4C92] font-bold text-xs mt-2 text-center" numberOfLines={1}>
-                      {cat.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))
-              ) : (
-                [
-                  { name: "مفروشات", icon: <DuvetIcon /> },
-                  { name: "وسائد", icon: <PillowIcon /> },
-                  { name: "بطانيات", icon: <MattressIcon /> },
-                  { name: "ألحفة", icon: <DuvetIcon /> },
-                  { name: "ملايات", icon: <PillowIcon /> },
-                  { name: "إكسسوارات", icon: <MattressIcon /> },
-                ].map((fallback, idx) => {
-                  const found = categories.find((c) => c.name.includes(fallback.name));
-                  return (
+            <View
+              style={{
+                transform: [{ scaleX: -1 }],
+                flexDirection: "row",
+                gap: 14,
+                paddingVertical: 8,
+              }}
+            >
+              {categories.length > 0
+                ? categories.map((cat) => (
                     <TouchableOpacity
-                      key={idx}
-                      onPress={() => handleCategoryPress(found?.id)}
+                      key={cat.id}
+                      onPress={() => handleCategoryPress(cat.id)}
                       activeOpacity={0.85}
-                      style={{ width: 100, height: 100 }}
-                      className="bg-[#edf3fa]/85 rounded-2xl items-center justify-center p-2 shadow-sm border border-[#e2ecf7]"
+                      className="bg-[#edf3fa]/85 rounded-2xl w-20 h-20 shadow-sm border border-[#e2ecf7] items-center justify-center p-2"
                     >
-                      {fallback.icon}
-                      <Text className="text-[#0F4C92] font-bold text-xs mt-2 text-center" numberOfLines={1}>
-                        {fallback.name}
+                      <Text
+                        className="text-[#0F4C92] font-black text-xs text-center"
+                        numberOfLines={2}
+                      >
+                        {cat.name}
                       </Text>
                     </TouchableOpacity>
-                  );
-                })
-              )}
+                  ))
+                : [
+                    { name: "مفروشات" },
+                    { name: "وسائد" },
+                    { name: "بطانيات" },
+                    { name: "ألحفة" },
+                    { name: "ملايات" },
+                    { name: "إكسسوارات" },
+                  ].map((fallback, idx) => {
+                    const found = categories.find((c) => c.name.includes(fallback.name));
+                    return (
+                      <TouchableOpacity
+                        key={idx}
+                        onPress={() => handleCategoryPress(found?.id)}
+                        activeOpacity={0.85}
+                        className="bg-[#edf3fa]/85 rounded-2xl w-20 h-20 shadow-sm border border-[#e2ecf7] items-center justify-center p-2"
+                      >
+                        <Text
+                          className="text-[#0F4C92] font-black text-xs text-center"
+                          numberOfLines={2}
+                        >
+                          {fallback.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
             </View>
           </ScrollView>
         </View>
 
         {/* 2. Latest Products Widget ("أحدث المنتجات") */}
-        <View className="mb-6">
+        <View className="mb-10">
           <View className="flex-row-reverse justify-between items-center mb-3">
             <View className="flex-row-reverse items-center gap-1.5">
               <Sparkles size={18} color="#0F4C92" />
-              <Text className="text-base font-bold text-gray-900 text-right">
-                أحدث المنتجات
-              </Text>
+              <Text className="text-base font-bold text-gray-900 text-right">أحدث المنتجات</Text>
             </View>
 
             <TouchableOpacity onPress={() => router.push("/shop")} activeOpacity={0.7}>
-              <Text className="text-[#0F4C92] font-extrabold text-xs">
-                عرض الكل
-              </Text>
+              <Text className="text-[#0F4C92] font-extrabold text-xs">عرض الكل</Text>
             </TouchableOpacity>
           </View>
 
@@ -433,35 +468,58 @@ export default function HomeScreen(): JSX.Element {
             </View>
           ) : latestProducts.length > 0 ? (
             <View className="flex-row-reverse flex-wrap justify-between gap-y-4">
-              {latestProducts.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  onPress={() => router.push(`/product-details?id=${item.id}` as any)}
-                  activeOpacity={0.92}
-                  style={{ width: "48%" }}
-                  className="bg-white rounded-3xl border border-gray-100/90 shadow-sm overflow-hidden justify-between mb-1"
-                >
-                  {/* Full-width Image Bleed */}
-                  <View className="w-full h-36 bg-gray-100 relative">
-                    {item.primaryImageUrl ? (
-                      <Image
-                        source={{ uri: item.primaryImageUrl }}
-                        className="w-full h-full"
-                        style={{ width: "100%", height: "100%" }}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View className="w-full h-full items-center justify-center">
-                        <Package size={22} color="#a0aec0" />
+              {latestProducts.map((item) => {
+                const isInCart = cartItems.some((cartItem) => cartItem.productId === item.id);
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    onPress={() => router.push(`/product-details?id=${item.id}` as any)}
+                    activeOpacity={0.92}
+                    style={{ width: "48%" }}
+                    className="bg-white rounded-3xl border border-gray-100/90 shadow-sm overflow-hidden justify-between mb-1"
+                  >
+                    {/* Full-width Image Bleed */}
+                    <View className="w-full h-36 bg-gray-100 relative">
+                      {/* "جديد" (New) Badge */}
+                      <View className="absolute top-2 right-2 bg-red-600 px-2 py-0.5 rounded-lg z-10 shadow-sm">
+                        <Text className="text-white text-[10px] font-extrabold">جديد</Text>
                       </View>
-                    )}
-                  </View>
 
-                  {/* Card Content */}
-                  <View className="p-3">
-                    {/* Details & Action button row */}
-                    <View className="flex-row-reverse justify-between items-end w-full">
-                      <View className="items-end flex-1 pl-1">
+                      {item.primaryImageUrl ? (
+                        <Image
+                          source={{ uri: item.primaryImageUrl }}
+                          className="w-full h-full"
+                          style={{ width: "100%", height: "100%" }}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View className="w-full h-full items-center justify-center">
+                          <Package size={22} color="#a0aec0" />
+                        </View>
+                      )}
+
+                      {/* Blue Circular Plus / Green Check Action Button (Absolute Positioned over Image) */}
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleAddToCart(item);
+                        }}
+                        activeOpacity={0.8}
+                        className={`w-8 h-8 rounded-xl items-center justify-center shadow-xs active:opacity-85 absolute bottom-2 left-2 z-10 ${
+                          isInCart ? "bg-green-600" : "bg-[#0F4C92]"
+                        }`}
+                      >
+                        {isInCart ? (
+                          <ShoppingCart size={13} color="#ffffff" strokeWidth={2.5} />
+                        ) : (
+                          <Plus size={16} color="#ffffff" strokeWidth={2.5} />
+                        )}
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Card Content */}
+                    <View className="p-3">
+                      <View className="items-end w-full">
                         <Text
                           className="font-extrabold text-gray-900 text-xs text-right mb-0.5 w-full"
                           numberOfLines={1}
@@ -472,15 +530,10 @@ export default function HomeScreen(): JSX.Element {
                           {item.price} {getCurrencySymbol(item.currencyId)}
                         </Text>
                       </View>
-
-                      {/* Blue Circular Plus Action Button */}
-                      <View className="w-8 h-8 rounded-full bg-[#0F4C92] items-center justify-center shadow-xs">
-                        <Plus size={16} color="#ffffff" strokeWidth={2.5} />
-                      </View>
                     </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           ) : (
             <View className="bg-white rounded-2xl p-4 border border-gray-100 items-center justify-center">

@@ -16,10 +16,10 @@ export const useOrderStatusesQuery = () => {
 /**
  * Hook to retrieve the list of orders for the current user.
  */
-export const useOrdersQuery = () => {
+export const useOrdersQuery = (orderStatusId?: number | null) => {
   return useQuery<OrderSummary[], Error>({
-    queryKey: ["orders"],
-    queryFn: () => orderService.getOrders(),
+    queryKey: ["orders", orderStatusId],
+    queryFn: () => orderService.getOrders(orderStatusId),
   });
 };
 

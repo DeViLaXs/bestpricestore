@@ -5,10 +5,10 @@ import { AdminOrderSummary, OrderResponseData, EditOrderItemInput } from "../typ
 /**
  * Hook to retrieve all user orders for admin.
  */
-export const useAdminOrdersQuery = () => {
+export const useAdminOrdersQuery = (search?: string, orderStatusId?: number) => {
   return useQuery<AdminOrderSummary[], Error>({
-    queryKey: ["admin-orders"],
-    queryFn: () => adminOrderService.getAdminOrders(),
+    queryKey: ["admin-orders", search, orderStatusId],
+    queryFn: () => adminOrderService.getAdminOrders(search, orderStatusId),
   });
 };
 
@@ -30,11 +30,14 @@ export const useAdminUpdateOrderStatusMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation<OrderResponseData, Error, { id: number; orderStatusId: number }>({
-    mutationFn: ({ id, orderStatusId }) => adminOrderService.updateAdminOrderStatus(id, orderStatusId),
+    mutationFn: ({ id, orderStatusId }) =>
+      adminOrderService.updateAdminOrderStatus(id, orderStatusId),
     onSuccess: (data, variables) => {
       // Invalidate both admin-orders list and details of this specific order
       queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
       queryClient.invalidateQueries({ queryKey: ["admin-order", variables.id] });
+      // Invalidate admin-dashboard to refresh count stats
+      queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
       // Also invalidate user queries if they share cache keys (e.g. orders, order)
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: ["order", variables.id] });
@@ -48,14 +51,14 @@ export const useAdminUpdateOrderStatusMutation = () => {
 export const useAdminEditOrderItemsMutation = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<OrderResponseData, Error, { id: number; items: EditOrderItemInput[] }>({
+  return useMutation<OrderResponseData | null, Error, { id: number; items: EditOrderItemInput[] }>({
     mutationFn: ({ id, items }) => adminOrderService.editAdminOrderItems(id, items),
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
       queryClient.invalidateQueries({ queryKey: ["admin-order", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: ["order", variables.id] });
     },
   });
 };
-

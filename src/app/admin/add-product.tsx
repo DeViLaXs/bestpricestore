@@ -6,7 +6,6 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Image,
   Modal,
@@ -19,6 +18,8 @@ import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../../hooks/useAuth";
+import { useAlert } from "../../contexts/AlertContext";
+import { useAppToast } from "../../hooks/useAppToast";
 import { useCategoriesQuery } from "../../hooks/useCategories";
 import {
   useCurrenciesQuery,
@@ -49,6 +50,8 @@ interface ImageSlot {
 export default function AddProductScreen(): JSX.Element {
   const insets = useSafeAreaInsets();
   const { user, isAdmin } = useAuth();
+  const { showAlert } = useAlert();
+  const { showSuccessToast, showErrorToast } = useAppToast();
 
   // Route guard: only allow users with Admin role or credentials
   useEffect(() => {
@@ -92,7 +95,7 @@ export default function AddProductScreen(): JSX.Element {
     // Request permission if needed
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("تنبيه", "يرجى منح صلاحية الوصول لمعرض الصور لرفع صور المنتج.");
+      showAlert("تنبيه", "يرجى منح صلاحية الوصول لمعرض الصور لرفع صور المنتج.");
       return;
     }
 
@@ -142,7 +145,7 @@ export default function AddProductScreen(): JSX.Element {
             : slot
         )
       );
-      Alert.alert("خطأ", "فشلت عملية رفع الصورة. يرجى المحاولة مرة أخرى.");
+      showAlert("خطأ", "فشلت عملية رفع الصورة. يرجى المحاولة مرة أخرى.");
     }
   };
 
@@ -178,23 +181,23 @@ export default function AddProductScreen(): JSX.Element {
     // 1. Validation
     const trimmedName = productName.trim();
     if (!trimmedName) {
-      Alert.alert("تنبيه", "يرجى إدخال اسم المنتج.");
+      showAlert("تنبيه", "يرجى إدخال اسم المنتج.");
       return;
     }
 
     const priceNum = parseFloat(price.trim());
     if (isNaN(priceNum) || priceNum <= 0) {
-      Alert.alert("تنبيه", "يرجى إدخال سعر صالح أكبر من الصفر.");
+      showAlert("تنبيه", "يرجى إدخال سعر صالح أكبر من الصفر.");
       return;
     }
 
     if (!selectedCurrencyId) {
-      Alert.alert("تنبيه", "يرجى اختيار العملة.");
+      showAlert("تنبيه", "يرجى اختيار العملة.");
       return;
     }
 
     if (!selectedCategoryId) {
-      Alert.alert("تنبيه", "يرجى اختيار فئة المنتج.");
+      showAlert("تنبيه", "يرجى اختيار فئة المنتج.");
       return;
     }
 
@@ -204,12 +207,12 @@ export default function AddProductScreen(): JSX.Element {
     // Check if there are any slots currently uploading
     const currentlyUploading = imageSlots.some((slot) => slot.isUploading);
     if (currentlyUploading) {
-      Alert.alert("تنبيه", "يرجى الانتظار حتى يكتمل رفع الصور الجاري.");
+      showAlert("تنبيه", "يرجى الانتظار حتى يكتمل رفع الصور الجاري.");
       return;
     }
 
     if (validImages.length === 0) {
-      Alert.alert("تنبيه", "يرجى إضافة وصورة واحدة على الأقل بنجاح للمنتج.");
+      showAlert("تنبيه", "يرجى إضافة وصورة واحدة على الأقل بنجاح للمنتج.");
       return;
     }
 
@@ -230,22 +233,17 @@ export default function AddProductScreen(): JSX.Element {
         images: imagesPayload,
       });
 
-      Alert.alert("نجاح", "تم إضافة المنتج بنجاح.", [
-        {
-          text: "موافق",
-          onPress: () => {
-            // Reset form
-            setProductName("");
-            setDescription("");
-            setPrice("");
-            setSelectedCategoryId(null);
-            setImageSlots([{ id: "1", quantity: 1, isUploading: false }]);
-            router.replace("/admin/products");
-          },
-        },
-      ]);
+      // Reset form
+      setProductName("");
+      setDescription("");
+      setPrice("");
+      setSelectedCategoryId(null);
+      setImageSlots([{ id: "1", quantity: 1, isUploading: false }]);
+      
+      showSuccessToast("نجاح", "تم إضافة المنتج بنجاح.");
+      router.replace("/admin/products");
     } catch (err: any) {
-      Alert.alert("خطأ", err.message || "فشلت عملية إضافة المنتج. يرجى المحاولة مرة أخرى.");
+      showErrorToast("خطأ", err.message || "فشلت عملية إضافة المنتج. يرجى المحاولة مرة أخرى.");
     }
   };
 
@@ -262,10 +260,10 @@ export default function AddProductScreen(): JSX.Element {
 
   return (
     <View className="flex-1 bg-[#f8fafd]">
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
-      {/* Clean White Header Banner */}
-      <View className="bg-white border-b border-gray-100/50" style={{ paddingTop: safeTop }}>
+      {/* Clean Blue Header Banner */}
+      <View className="bg-[#0F4C92]" style={{ paddingTop: safeTop }}>
         <View className="flex-row items-center justify-between px-6 py-2.5">
           {/* Back Button on Left */}
           <TouchableOpacity
@@ -273,11 +271,11 @@ export default function AddProductScreen(): JSX.Element {
             className="p-1"
             activeOpacity={0.7}
           >
-            <StyledArrowLeft size={24} className="text-gray-900" />
+            <StyledArrowLeft size={24} className="text-white" />
           </TouchableOpacity>
 
           {/* Title on Right */}
-          <Text className="text-lg font-bold text-gray-900 text-right">إضافة منتج</Text>
+          <Text className="text-lg font-bold text-white text-right">إضافة منتج</Text>
         </View>
       </View>
 
@@ -312,22 +310,15 @@ export default function AddProductScreen(): JSX.Element {
             <View className="relative">
               <TextInput
                 value={description}
-                onChangeText={(text) => {
-                  if (text.length <= 500) {
-                    setDescription(text);
-                  }
-                }}
+                onChangeText={setDescription}
                 placeholder="اكتب وصف المنتج بالتفصيل"
                 placeholderTextColor="#a0aec0"
                 multiline
-                numberOfLines={5}
+                numberOfLines={8}
                 textAlignVertical="top"
-                style={{ fontFamily: "System", height: 120 }}
-                className="rounded-2xl border-[1.5px] border-gray-200 bg-white p-4 pb-8 text-sm text-gray-800 font-semibold text-right"
+                style={{ fontFamily: "System", height: 200 }}
+                className="rounded-2xl border-[1.5px] border-gray-200 bg-white p-4 text-sm text-gray-800 font-semibold text-right"
               />
-              <Text className="absolute bottom-3 left-4 text-xs font-semibold text-gray-400">
-                {description.length}/500
-              </Text>
             </View>
           </View>
 
@@ -432,7 +423,10 @@ export default function AddProductScreen(): JSX.Element {
                         className="px-3 py-1.5"
                         activeOpacity={0.7}
                       >
-                        <StyledMinus size={14} className={slot.quantity <= 1 ? "text-gray-300" : "text-gray-500"} />
+                        <StyledMinus
+                          size={14}
+                          className={slot.quantity <= 1 ? "text-gray-300" : "text-gray-500"}
+                        />
                       </TouchableOpacity>
 
                       <Text

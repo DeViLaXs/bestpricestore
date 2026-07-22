@@ -1,12 +1,11 @@
 import type { JSX } from "react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
-  Alert,
   Modal,
   ScrollView,
   Image,
@@ -21,10 +20,12 @@ import {
   AlertCircle,
   Package,
   X,
+  Check,
 } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { useFocusEffect, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useAppToast } from "../../hooks/useAppToast";
 import OrderListSkeleton from "../../components/OrderListSkeleton";
 import OrderDetailSkeleton from "../../components/OrderDetailSkeleton";
 import {
@@ -33,6 +34,7 @@ import {
   useOrderDetailsQuery,
   useCancelOrderMutation,
 } from "../../hooks/useOrders";
+import { useAlert } from "../../contexts/AlertContext";
 
 // Arabic status names lookup mapping
 const STATUS_ARABIC_MAP: Record<string, string> = {
@@ -44,10 +46,7 @@ const STATUS_ARABIC_MAP: Record<string, string> = {
 };
 
 // Styling mapping for status badges
-const STATUS_STYLE_MAP: Record<
-  number,
-  { bg: string; text: string; icon: any }
-> = {
+const STATUS_STYLE_MAP: Record<number, { bg: string; text: string; icon: any }> = {
   1: { bg: "bg-amber-50 border-amber-200", text: "text-amber-700", icon: Clock }, // Pending
   2: { bg: "bg-blue-50 border-blue-200", text: "text-blue-700", icon: Clock }, // Processing
   3: { bg: "bg-indigo-50 border-indigo-200", text: "text-indigo-700", icon: Package }, // Shipped
@@ -57,20 +56,39 @@ const STATUS_STYLE_MAP: Record<
 
 export default function OrdersScreen(): JSX.Element {
   const insets = useSafeAreaInsets();
-  const { data: orders, isLoading: isLoadingOrders, error: ordersError, refetch: refetchOrders } = useOrdersQuery();
+  const [selectedStatusId, setSelectedStatusId] = useState<number | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const {
+    data: orders,
+    isLoading: isLoadingOrders,
+    error: ordersError,
+    refetch: refetchOrders,
+  } = useOrdersQuery(selectedStatusId);
+
+  const {
+    data: allOrders,
+    refetch: refetchAllOrders,
+  } = useOrdersQuery(null);
+
   const { data: statuses } = useOrderStatusesQuery();
   const cancelOrderMutation = useCancelOrderMutation();
 
-  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedStatusId, setSelectedStatusId] = useState<number | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  // Re-fetch data automatically when the screen receives focus
+  useFocusEffect(
+    useCallback(() => {
+      refetchOrders();
+      refetchAllOrders();
+    }, [refetchOrders, refetchAllOrders])
+  );
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     const start = Date.now();
     try {
-      await refetchOrders();
+      await Promise.all([refetchOrders(), refetchAllOrders()]);
     } catch (err) {
       console.warn("Refetch error:", err);
     } finally {
@@ -128,17 +146,12 @@ export default function OrdersScreen(): JSX.Element {
     setIsModalOpen(false);
   };
 
-  // Filter orders locally
-  const filteredOrders = orders?.filter(
-    (order) => selectedStatusId === null || order.orderStatusId === selectedStatusId
-  );
-
   const safeTop = insets.top > 0 ? insets.top : 47;
   const safeBottom = insets.bottom > 0 ? insets.bottom : 20;
 
   // Dynamic status count computation matching admin
   const counts = useMemo(() => {
-    const list = Array.isArray(orders) ? orders : [];
+    const list = Array.isArray(allOrders) ? allOrders : [];
     let all = list.length;
     let pendingReview = 0;
     let processing = 0;
@@ -155,16 +168,16 @@ export default function OrdersScreen(): JSX.Element {
     });
 
     return { all, pendingReview, processing, shipped, delivered, cancelled };
-  }, [orders]);
+  }, [allOrders]);
 
   return (
     <View className="flex-1 bg-white">
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
-      {/* Clean White Header Banner */}
-      <View className="bg-white border-b border-gray-100/50" style={{ paddingTop: safeTop }}>
+      {/* Clean Blue Header Banner */}
+      <View className="bg-[#0F4C92]" style={{ paddingTop: safeTop }}>
         <View className="flex-row-reverse items-center px-6 py-2.5">
-          <Text className="text-lg font-bold text-gray-900 text-right">طلباتي</Text>
+          <Text className="text-lg font-bold text-white text-right">طلباتي</Text>
         </View>
       </View>
 
@@ -228,11 +241,11 @@ export default function OrdersScreen(): JSX.Element {
           <OrderListSkeleton bottomPadding={safeBottom + 80} />
         ) : (
           <FlatList
-            data={filteredOrders}
+            data={orders}
             keyExtractor={(item) => item.id.toString()}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ 
-              paddingTop: 12, 
+            contentContainerStyle={{
+              paddingTop: 12,
               paddingBottom: safeBottom + 80,
               paddingHorizontal: 16,
               flexGrow: 1,
@@ -256,12 +269,14 @@ export default function OrdersScreen(): JSX.Element {
                     <Text className="text-white font-bold">إعادة المحاولة</Text>
                   </TouchableOpacity>
                 </View>
-              ) : orders?.length === 0 ? (
+              ) : allOrders?.length === 0 ? (
                 <View className="flex-1 items-center justify-center py-20">
                   <View className="w-20 h-20 bg-gray-100 rounded-full items-center justify-center mb-4">
                     <Package size={36} color="#a0aec0" />
                   </View>
-                  <Text className="text-gray-800 font-bold text-lg text-center">لا توجد طلبات سابقة</Text>
+                  <Text className="text-gray-800 font-bold text-lg text-center">
+                    لا توجد طلبات سابقة
+                  </Text>
                   <Text className="text-gray-500 text-sm mt-1 text-center">
                     لم تقم بإجراء أي طلبات حتى الآن.
                   </Text>
@@ -272,17 +287,19 @@ export default function OrdersScreen(): JSX.Element {
                     <Text className="text-white font-bold">تصفح المنتجات</Text>
                   </TouchableOpacity>
                 </View>
-              ) : (
+              ) : orders?.length === 0 ? (
                 <View className="flex-1 items-center justify-center py-20">
                   <View className="w-20 h-20 bg-gray-100 rounded-full items-center justify-center mb-4">
                     <Package size={36} color="#a0aec0" />
                   </View>
-                  <Text className="text-gray-800 font-bold text-lg text-center">لا توجد طلبات تطابق التصفية</Text>
+                  <Text className="text-gray-800 font-bold text-lg text-center">
+                    لا توجد طلبات تطابق التصفية
+                  </Text>
                   <Text className="text-gray-500 text-sm mt-1 text-center">
                     حاول اختيار حالة تصفية أخرى.
                   </Text>
                 </View>
-              )
+              ) : null
             }
             renderItem={({ item }) => {
               const statusInfo = getStatusDetails(item.orderStatusId);
@@ -295,17 +312,20 @@ export default function OrdersScreen(): JSX.Element {
                 >
                   <View className="flex-1 items-end pl-2">
                     <View className="flex-row-reverse items-center gap-2 mb-1.5">
-                      <Text className="font-black text-gray-900 text-base">
-                        طلب #{item.id}
-                      </Text>
-                      <View className={`px-2.5 py-0.5 rounded-full border ${statusInfo.bg} flex-row-reverse items-center gap-1`}>
+                      <Text className="font-black text-gray-900 text-base">طلب #{item.id}</Text>
+                      <View
+                        className={`px-2.5 py-0.5 rounded-full border ${statusInfo.bg} flex-row-reverse items-center gap-1`}
+                      >
                         <StatusIcon size={12} className={statusInfo.text} />
-                        <Text numberOfLines={1} className={`text-[10px] font-black ${statusInfo.text}`}>
+                        <Text
+                          numberOfLines={1}
+                          className={`text-[10px] font-black ${statusInfo.text}`}
+                        >
                           {statusInfo.name}
                         </Text>
                       </View>
                     </View>
- 
+
                     {/* Date */}
                     <View className="flex-row-reverse items-center gap-1.5 mb-2.5">
                       <Calendar size={13} color="#718096" />
@@ -313,7 +333,7 @@ export default function OrdersScreen(): JSX.Element {
                         {formatDate(item.createdAt)}
                       </Text>
                     </View>
- 
+
                     {/* Amounts */}
                     <View className="flex-row-reverse items-center gap-3">
                       {item.totalAmountYer > 0 && (
@@ -332,7 +352,7 @@ export default function OrdersScreen(): JSX.Element {
                       )}
                     </View>
                   </View>
- 
+
                   <ChevronLeft size={18} color="#a0aec0" />
                 </TouchableOpacity>
               );
@@ -340,7 +360,7 @@ export default function OrdersScreen(): JSX.Element {
           />
         )}
       </View>
- 
+
       {/* Details Modal */}
       {selectedOrderId && (
         <OrderDetailsModal
@@ -355,7 +375,7 @@ export default function OrdersScreen(): JSX.Element {
     </View>
   );
 }
- 
+
 interface OrderDetailsModalProps {
   orderId: number;
   isOpen: boolean;
@@ -364,7 +384,7 @@ interface OrderDetailsModalProps {
   formatDate: (dateStr: string) => string;
   cancelMutation: ReturnType<typeof useCancelOrderMutation>;
 }
- 
+
 function OrderDetailsModal({
   orderId,
   isOpen,
@@ -375,44 +395,36 @@ function OrderDetailsModal({
 }: OrderDetailsModalProps) {
   const { data: orderDetails, isLoading, error } = useOrderDetailsQuery(orderId);
   const insets = useSafeAreaInsets();
- 
+  const { showAlert } = useAlert();
+  const { showSuccessToast, showErrorToast } = useAppToast();
+
   const handleCancelOrder = () => {
-    Alert.alert(
-      "إلغاء الطلب",
-      "هل أنت متأكد من رغبتك في إلغاء هذا الطلب؟",
-      [
-        { text: "تراجع", style: "cancel" },
-        {
-          text: "تأكيد الإلغاء",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await cancelMutation.mutateAsync(orderId);
-              Alert.alert("تم الإلغاء", "تم إلغاء طلبك بنجاح واسترجاع المخزون.");
-              onClose();
-            } catch (err: any) {
-              Alert.alert("فشل الإلغاء", err.message || "حدث خطأ أثناء إلغاء الطلب.");
-            }
-          },
+    showAlert("إلغاء الطلب", "هل أنت متأكد من رغبتك في إلغاء هذا الطلب؟", [
+      { text: "تراجع", style: "cancel" },
+      {
+        text: "تأكيد الإلغاء",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await cancelMutation.mutateAsync(orderId);
+            showSuccessToast("تم الإلغاء", "تم إلغاء طلبك بنجاح واسترجاع المخزون.");
+            onClose();
+          } catch (err: any) {
+            showErrorToast("فشل الإلغاء", err.message || "حدث خطأ أثناء إلغاء الطلب.");
+          }
         },
-      ],
-      { cancelable: true }
-    );
+      },
+    ]);
   };
- 
+
   const statusInfo = orderDetails ? getStatusDetails(orderDetails.orderStatusId) : null;
   const StatusIcon = statusInfo?.icon;
   const isPending = orderDetails?.orderStatusId === 1;
- 
+
   const safeBottom = insets.bottom > 0 ? insets.bottom : 20;
- 
+
   return (
-    <Modal
-      visible={isOpen}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
-    >
+    <Modal visible={isOpen} animationType="slide" transparent={true} onRequestClose={onClose}>
       <View className="flex-1 bg-black/50 justify-end">
         <View className="bg-white rounded-t-[32px] h-[85%] relative overflow-hidden flex-col">
           {/* Modal Header */}
@@ -425,7 +437,7 @@ function OrderDetailsModal({
               <X size={18} color="#4a5568" />
             </TouchableOpacity>
           </View>
- 
+
           {isLoading ? (
             <OrderDetailSkeleton />
           ) : error ? (
@@ -456,7 +468,9 @@ function OrderDetailsModal({
                   <View className="flex-row-reverse items-center gap-2 mb-2">
                     <Text className="font-bold text-gray-400 text-xs">حالة الطلب:</Text>
                     {statusInfo && (
-                      <View className={`px-2.5 py-0.5 rounded-full border ${statusInfo.bg} flex-row-reverse items-center gap-1`}>
+                      <View
+                        className={`px-2.5 py-0.5 rounded-full border ${statusInfo.bg} flex-row-reverse items-center gap-1`}
+                      >
                         <StatusIcon size={12} className={statusInfo.text} />
                         <Text className={`text-[10px] font-black ${statusInfo.text}`}>
                           {statusInfo.name}
@@ -464,7 +478,7 @@ function OrderDetailsModal({
                       </View>
                     )}
                   </View>
- 
+
                   <View className="flex-row-reverse items-center gap-2">
                     <Text className="font-bold text-gray-400 text-xs">تاريخ الطلب:</Text>
                     <Text className="font-semibold text-gray-700 text-xs">
@@ -472,12 +486,12 @@ function OrderDetailsModal({
                     </Text>
                   </View>
                 </View>
- 
+
                 {/* Items List Title */}
                 <Text className="text-right font-black text-gray-900 text-base mb-4">
                   المنتجات المشتراة
                 </Text>
- 
+
                 {/* Items */}
                 {orderDetails.items?.map((item, idx) => (
                   <View
@@ -499,20 +513,24 @@ function OrderDetailsModal({
                         </View>
                       )}
                     </View>
- 
+
                     {/* Info */}
                     <View className="flex-1 items-end pr-4 pl-2">
-                      <Text className="font-bold text-gray-900 text-sm text-right" numberOfLines={1}>
+                      <Text
+                        className="font-bold text-gray-900 text-sm text-right"
+                        numberOfLines={1}
+                      >
                         {item.productName}
                       </Text>
                       <Text className="text-gray-400 text-[10px] font-semibold mt-0.5">
                         الكمية: {item.quantity}
                       </Text>
                       <Text className="text-[#0F4C92] text-xs font-extrabold mt-1">
-                        {item.unitPrice.toLocaleString("en-US")} {item.currencyId === 1 ? "ريال يمني" : "ريال سعودي"}
+                        {item.unitPrice.toLocaleString("en-US")}{" "}
+                        {item.currencyId === 1 ? "ريال يمني" : "ريال سعودي"}
                       </Text>
                     </View>
- 
+
                     {/* Total Amount */}
                     <View className="items-start">
                       <Text className="text-gray-900 font-extrabold text-sm">
@@ -524,23 +542,29 @@ function OrderDetailsModal({
                     </View>
                   </View>
                 ))}
- 
+
                 {/* Summary Calculations */}
                 <View className="bg-gray-50 rounded-2xl p-4 mt-6 border border-gray-100">
-                  <Text className="text-right font-black text-gray-800 text-sm mb-3">تفاصيل المجموع</Text>
- 
+                  <Text className="text-right font-black text-gray-800 text-sm mb-3">
+                    تفاصيل المجموع
+                  </Text>
+
                   {orderDetails.totalAmountYer > 0 && (
                     <View className="flex-row-reverse justify-between items-center mb-2">
-                      <Text className="text-gray-500 font-bold text-xs">المجموع بالريال اليمني:</Text>
+                      <Text className="text-gray-500 font-bold text-xs">
+                        المجموع بالريال اليمني:
+                      </Text>
                       <Text className="text-gray-900 font-black text-sm">
                         {orderDetails.totalAmountYer.toLocaleString("en-US")} ر.ي
                       </Text>
                     </View>
                   )}
- 
+
                   {orderDetails.totalAmountSar > 0 && (
                     <View className="flex-row-reverse justify-between items-center mb-2">
-                      <Text className="text-gray-500 font-bold text-xs">المجموع بالريال السعودي:</Text>
+                      <Text className="text-gray-500 font-bold text-xs">
+                        المجموع بالريال السعودي:
+                      </Text>
                       <Text className="text-gray-900 font-black text-sm">
                         {orderDetails.totalAmountSar.toLocaleString("en-US")} ر.س
                       </Text>
@@ -548,7 +572,7 @@ function OrderDetailsModal({
                   )}
                 </View>
               </ScrollView>
- 
+
               {/* Bottom Actions Footer */}
               <View
                 style={{ paddingBottom: safeBottom + 12 }}
@@ -569,12 +593,12 @@ function OrderDetailsModal({
                 ) : (
                   <View className="flex-1 bg-gray-50 border border-gray-200 rounded-full h-12 items-center justify-center">
                     <Text className="text-gray-400 font-bold text-xs">
-                      {orderDetails.orderStatusId === 5 ? "تم إلغاء الطلب مسبقاً" : "لا يمكن إلغاء هذا الطلب"}
+                      {orderDetails.orderStatusId === 5
+                        ? "تم إلغاء الطلب مسبقاً"
+                        : "لا يمكن إلغاء هذا الطلب"}
                     </Text>
                   </View>
                 )}
- 
-                
               </View>
             </>
           ) : null}

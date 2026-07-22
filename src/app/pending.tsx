@@ -1,6 +1,6 @@
 import type { JSX } from "react";
 import { useState, useEffect } from "react";
-import { View, ScrollView, Alert, Animated, Image, Linking } from "react-native";
+import { View, ScrollView, Animated, Image, Linking } from "react-native";
 import { router } from "expo-router";
 import { Button, Typography } from "heroui-native";
 import {
@@ -17,6 +17,7 @@ import { withUniwind } from "uniwind";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useAuth } from "../hooks/useAuth";
+import { useAlert } from "../contexts/AlertContext";
 
 const StyledClock = withUniwind(Clock);
 const StyledCheck = withUniwind(Check);
@@ -29,6 +30,7 @@ const StyledLogOut = withUniwind(LogOut);
 
 export default function PendingScreen(): JSX.Element {
   const { user, isAdmin, logoutMutation, meMutation } = useAuth();
+  const { showAlert } = useAlert();
   const insets = useSafeAreaInsets();
   const [isChecking, setIsChecking] = useState(false);
   const [pulseAnim] = useState(() => new Animated.Value(1));
@@ -74,7 +76,7 @@ export default function PendingScreen(): JSX.Element {
       setIsChecking(false);
 
       if (updatedUser.isActive) {
-        Alert.alert("تم تفعيل الحساب", "تهانينا! لقد تم الموافقة على حسابك وتفعيله بنجاح.", [
+        showAlert("تم تفعيل الحساب", "تهانينا! لقد تم الموافقة على حسابك وتفعيله بنجاح.", [
           {
             text: "دخول للمتجر",
             onPress: () => {
@@ -83,7 +85,7 @@ export default function PendingScreen(): JSX.Element {
           },
         ]);
       } else {
-        Alert.alert(
+        showAlert(
           "حالة الحساب",
           "حسابك لا يزال قيد المراجعة والتدقيق من قبل فريق الإدارة. سنقوم بتحديث حالتك بمجرد الموافقة.",
           [{ text: "حسناً" }]
@@ -91,7 +93,7 @@ export default function PendingScreen(): JSX.Element {
       }
     } catch {
       setIsChecking(false);
-      Alert.alert(
+      showAlert(
         "خطأ في الاتصال",
         "تعذر التحقق من حالة الحساب حالياً. يرجى التأكد من اتصالك بالإنترنت والمحاولة مرة أخرى."
       );
@@ -102,7 +104,7 @@ export default function PendingScreen(): JSX.Element {
    * Handles Logging out
    */
   const handleLogout = async () => {
-    Alert.alert(
+    showAlert(
       "تسجيل الخروج",
       "هل أنت متأكد من رغبتك في تسجيل الخروج؟",
       [
@@ -119,8 +121,7 @@ export default function PendingScreen(): JSX.Element {
             }
           },
         },
-      ],
-      { cancelable: true }
+      ]
     );
   };
 
@@ -128,8 +129,7 @@ export default function PendingScreen(): JSX.Element {
    * Handles Support Contact via WhatsApp with the admin
    */
   const handleContactSupport = async () => {
-    // const phoneNumber = "+967773124470";
-    const phoneNumber = "+967738995845";
+    const phoneNumber = "+967733483739";
     const userStoreName = user?.fullName || "غير محدد";
     const userPhone = user?.phone || "غير محدد";
     const message = `السلام عليكم، لقد قمت بالتسجيل في تطبيق السعر المناسب وأرغب في تفعيل حسابي.\nاسم المتجر: ${userStoreName}\nرقم الجوال: ${userPhone}`;
@@ -144,7 +144,7 @@ export default function PendingScreen(): JSX.Element {
         await Linking.openURL(webUrl);
       }
     } catch {
-      Alert.alert(
+      showAlert(
         "خطأ في الاتصال",
         `عذراً، لم نتمكن من فتح تطبيق واتساب. يمكنك إرسال رسالة يدوية إلى الرقم:\n${phoneNumber}`
       );
@@ -154,36 +154,44 @@ export default function PendingScreen(): JSX.Element {
   return (
     <View className="flex-1 bg-gray-50">
       <StatusBar style="dark" />
-      <ScrollView
-        contentContainerStyle={{
-          flexGrow: 1,
-          paddingTop: insets.top + 20,
-          paddingBottom: Math.max(insets.bottom, 24),
+      <View
+        style={{
+          flex: 1,
+          paddingTop: insets.top + 16,
+          paddingBottom: Math.max(insets.bottom, 20),
+          paddingHorizontal: 20,
           justifyContent: "space-between",
         }}
-        showsVerticalScrollIndicator={false}
-        className="px-6"
       >
-        {/* Top Header Card */}
-        <View className="items-center mt-4">
-          <View className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 items-center justify-center w-full max-w-[340px] aspect-[2.2] overflow-hidden">
+        {/* Header Row: Logo & Logout */}
+        <View className="flex-row-reverse items-center justify-between w-full pb-2 border-b border-gray-100">
+          <View className="flex-row items-center">
             <Image
               source={require("../../assets/images/logo.jpg")}
-              className="w-full h-full"
+              className="h-10 w-28"
               resizeMode="contain"
             />
           </View>
+          <Button
+            onPress={handleLogout}
+            className="flex-row items-center gap-1.5 bg-red-50 px-3 py-1.5 rounded-full min-w-0"
+          >
+            <StyledLogOut size={16} className="text-red-500" />
+            <Typography.Paragraph className="text-red-500 font-bold text-xs">
+              خروج
+            </Typography.Paragraph>
+          </Button>
         </View>
 
-        {/* Main Status Information Card */}
-        <View className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 items-center my-6 relative overflow-hidden">
+        {/* Main Status Card */}
+        <View className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 items-center my-4 flex-1 justify-center relative overflow-hidden max-h-[420px]">
           {/* Soft yellow/amber background highlight */}
-          <View className="absolute right-0 top-0 w-24 h-24 bg-amber-50/60 rounded-full -mr-6 -mt-6" />
+          <View className="absolute right-0 top-0 w-24 h-24 bg-amber-50/40 rounded-full -mr-6 -mt-6" />
 
           {/* Pulsing Icon */}
-          <Animated.View style={{ transform: [{ scale: pulseAnim }] }} className="mb-6 mt-4">
-            <View className="w-20 h-20 bg-amber-50 rounded-full items-center justify-center border border-amber-100 shadow-inner">
-              <StyledClock size={40} className="text-amber-500" />
+          <Animated.View style={{ transform: [{ scale: pulseAnim }] }} className="mb-4">
+            <View className="w-16 h-16 bg-amber-50 rounded-full items-center justify-center border border-amber-100 shadow-inner">
+              <StyledClock size={32} className="text-amber-500" />
             </View>
           </Animated.View>
 
@@ -195,73 +203,74 @@ export default function PendingScreen(): JSX.Element {
           {/* Heading */}
           <Typography.Heading
             type="h2"
-            className="text-2xl font-extrabold text-gray-900 text-center mb-3"
+            className="text-xl font-extrabold text-gray-900 text-center mb-2"
           >
             الحساب قيد المراجعة
           </Typography.Heading>
 
           {/* Detailed Message */}
-          <Typography.Paragraph className="text-gray-500 text-sm text-center leading-6 px-2 mb-6">
+          <Typography.Paragraph className="text-gray-500 text-xs text-center leading-5 px-3 mb-6">
             شكراً لتسجيلك معنا. حسابك حالياً بانتظار موافقة الإدارة وتفعيل متجرك. نقوم بمراجعة كافة
             الطلبات والتحقق من صحة البيانات لضمان تقديم أفضل تجربة.
           </Typography.Paragraph>
 
-          {/* Status Step Indicator (Visual touch) */}
-          <View className="w-full bg-gray-50 rounded-2xl p-4 border border-gray-100 gap-3">
-            <View className="flex-row-reverse items-center justify-between">
-              <View className="flex-row-reverse items-center gap-2.5">
-                <View className="w-6 h-6 bg-emerald-500 rounded-full items-center justify-center">
-                  <StyledCheck size={14} className="text-white" />
+          {/* Horizontal Status Step Indicator */}
+          <View className="w-full bg-gray-50 rounded-2xl p-4 border border-gray-100">
+            <View className="flex-row-reverse items-center justify-between px-1">
+              {/* Step 1: Created */}
+              <View className="items-center flex-1">
+                <View className="w-8 h-8 bg-emerald-500 rounded-full items-center justify-center mb-1.5 shadow-sm">
+                  <StyledCheck size={16} className="text-white" />
                 </View>
-                <Typography.Paragraph className="text-gray-800 text-sm font-bold">
-                  إنشاء الحساب بنجاح
+                <Typography.Paragraph className="text-gray-800 text-[10px] font-bold text-center">
+                  إنشاء الحساب
+                </Typography.Paragraph>
+                <Typography.Paragraph className="text-emerald-600 text-[9px] font-semibold mt-0.5">
+                  اكتمل
                 </Typography.Paragraph>
               </View>
-              <Typography.Paragraph className="text-gray-400 text-xs font-semibold">
-                اكتمل
-              </Typography.Paragraph>
-            </View>
 
-            <View className="w-[1.5px] h-4 bg-emerald-300 mr-3" />
+              {/* Connector 1 */}
+              <View className="h-[2px] bg-emerald-500 flex-1 -mt-5 mx-1" />
 
-            <View className="flex-row-reverse items-center justify-between">
-              <View className="flex-row-reverse items-center gap-2.5">
-                <View className="w-6 h-6 bg-amber-500 rounded-full items-center justify-center">
-                  <StyledEllipsis size={14} className="text-white" />
+              {/* Step 2: Under Review */}
+              <View className="items-center flex-1">
+                <View className="w-8 h-8 bg-amber-500 rounded-full items-center justify-center mb-1.5 shadow-sm">
+                  <StyledEllipsis size={16} className="text-white" />
                 </View>
-                <Typography.Paragraph className="text-gray-800 text-sm font-bold">
-                  مراجعة وتفعيل الحساب
+                <Typography.Paragraph className="text-gray-800 text-[10px] font-bold text-center">
+                  مراجعة وتفعيل
+                </Typography.Paragraph>
+                <Typography.Paragraph className="text-amber-600 text-[9px] font-bold mt-0.5 animate-pulse">
+                  قيد المعالجة
                 </Typography.Paragraph>
               </View>
-              <Typography.Paragraph className="text-amber-500 text-xs font-bold">
-                قيد المعالجة
-              </Typography.Paragraph>
-            </View>
 
-            <View className="w-[1.5px] h-4 bg-gray-200 mr-3" />
+              {/* Connector 2 */}
+              <View className="h-[2px] bg-gray-200 flex-1 -mt-5 mx-1" />
 
-            <View className="flex-row-reverse items-center justify-between">
-              <View className="flex-row-reverse items-center gap-2.5">
-                <View className="w-6 h-6 bg-gray-200 rounded-full items-center justify-center">
-                  <StyledLock size={12} className="text-gray-400" />
+              {/* Step 3: Start */}
+              <View className="items-center flex-1">
+                <View className="w-8 h-8 bg-gray-200 rounded-full items-center justify-center mb-1.5">
+                  <StyledLock size={14} className="text-gray-400" />
                 </View>
-                <Typography.Paragraph className="text-gray-400 text-sm font-semibold">
-                  بدء استخدام المتجر
+                <Typography.Paragraph className="text-gray-400 text-[10px] font-semibold text-center">
+                  بدء استخدام
+                </Typography.Paragraph>
+                <Typography.Paragraph className="text-gray-400 text-[9px] font-semibold mt-0.5">
+                  معلق
                 </Typography.Paragraph>
               </View>
-              <Typography.Paragraph className="text-gray-400 text-xs font-semibold">
-                معلق
-              </Typography.Paragraph>
             </View>
           </View>
         </View>
 
         {/* Action Buttons Section */}
-        <View className="gap-3 w-full">
+        <View className="gap-2.5 w-full">
           {/* Refresh Status Button */}
           <Button
             onPress={handleCheckStatus}
-            className="w-full bg-[#0F4C92] rounded-full py-3 flex-row justify-center items-center"
+            className="w-full bg-[#0F4C92] rounded-full py-3 flex-row justify-center items-center shadow-sm"
             isDisabled={isChecking}
           >
             {isChecking ? (
@@ -284,32 +293,17 @@ export default function PendingScreen(): JSX.Element {
           {/* Contact Support Button */}
           <Button
             onPress={handleContactSupport}
-            variant="secondary"
-            className="w-full bg-white rounded-full py-3 border border-gray-200 flex-row justify-center items-center"
+            className="w-full bg-emerald-50 rounded-full py-3 border border-emerald-100 flex-row justify-center items-center"
           >
             <View className="flex-row items-center gap-2">
-              <StyledMessageSquare size={18} className="text-gray-700" />
-              <Typography.Paragraph className="text-gray-700 font-bold text-sm">
+              <StyledMessageSquare size={18} className="text-emerald-700" />
+              <Typography.Paragraph className="text-emerald-700 font-bold text-sm">
                 تواصل مع الدعم الفني
               </Typography.Paragraph>
             </View>
           </Button>
-
-          {/* Logout Button */}
-          <Button
-            onPress={handleLogout}
-            variant="danger-soft"
-            className="w-full rounded-full py-3 flex-row justify-center items-center mt-2"
-          >
-            <View className="flex-row items-center gap-2">
-              <StyledLogOut size={18} className="text-danger" />
-              <Typography.Paragraph className="text-danger font-bold text-sm">
-                تسجيل الخروج
-              </Typography.Paragraph>
-            </View>
-          </Button>
         </View>
-      </ScrollView>
+      </View>
     </View>
   );
 }

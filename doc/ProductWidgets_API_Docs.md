@@ -5,11 +5,13 @@ This document describes the API endpoints for product widgets (Latest Products a
 ---
 
 ## Base URL
+
 All URLs are relative to the application's base path, for example: `http://localhost:5194`
 
 ---
 
 ## 1. Get Latest Products
+
 Retrieves the latest 5 active products in the system.
 
 - **URL:** `/api/Products/latest`
@@ -17,6 +19,7 @@ Retrieves the latest 5 active products in the system.
 - **Authentication:** None required (Publicly accessible)
 
 ### Response (200 OK)
+
 ```json
 {
   "statusCode": 200,
@@ -44,6 +47,7 @@ Retrieves the latest 5 active products in the system.
 ---
 
 ## 2. Get Top Selling Products
+
 Retrieves the top 10 products based on the total quantity sold in **Delivered** orders.
 
 - **URL:** `/api/Products/top-selling`
@@ -51,6 +55,7 @@ Retrieves the top 10 products based on the total quantity sold in **Delivered** 
 - **Authentication:** None required (Publicly accessible)
 
 ### Response (200 OK)
+
 ```json
 {
   "statusCode": 200,
@@ -82,20 +87,22 @@ Retrieves the top 10 products based on the total quantity sold in **Delivered** 
 ### Response Field Descriptions
 
 #### ProductBrowseResponseDTO (Latest Products)
-| Field | Type | Description |
-| :--- | :--- | :--- |
-| `id` | `int` | Unique identifier of the product |
-| `name` | `string?` | Name of the product |
-| `price` | `double` | Price of the product |
-| `currencyId` | `int` | Currency lookup ID (`1` = YER, `2` = SAR) |
-| `primaryImageUrl`| `string?` | URL of the primary product image variation |
+
+| Field             | Type      | Description                                |
+| :---------------- | :-------- | :----------------------------------------- |
+| `id`              | `int`     | Unique identifier of the product           |
+| `name`            | `string?` | Name of the product                        |
+| `price`           | `double`  | Price of the product                       |
+| `currencyId`      | `int`     | Currency lookup ID (`1` = YER, `2` = SAR)  |
+| `primaryImageUrl` | `string?` | URL of the primary product image variation |
 
 #### ProductBestSellerResponseDTO (Top Selling Products)
-| Field | Type | Description |
-| :--- | :--- | :--- |
-| `id` | `int` | Unique identifier of the product |
-| `name` | `string?` | Name of the product |
-| `price` | `double` | Price of the product |
-| `currencyId` | `int` | Currency lookup ID (`1` = YER, `2` = SAR) |
-| `primaryImageUrl`| `string?` | URL of the primary product image variation |
-| `totalQuantitySold`| `int` | Total sum of quantities ordered across all Delivered orders (OrderStatusId == 4) |
+
+| Field               | Type      | Description                                                                      |
+| :------------------ | :-------- | :------------------------------------------------------------------------------- |
+| `id`                | `int`     | Unique identifier of the product                                                 |
+| `name`              | `string?` | Name of the product                                                              |
+| `price`             | `double`  | Price of the product                                                             |
+| `currencyId`        | `int`     | Currency lookup ID (`1` = YER, `2` = SAR)                                        |
+| `primaryImageUrl`   | `string?` | URL of the primary product image variation                                       |
+| `totalQuantitySold` | `int`     | Total sum of quantities ordered across all Delivered orders (OrderStatusId == 4) |
